@@ -1,0 +1,46 @@
+services:
+  db:
+    image: postgres:17
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: khai
+      POSTGRES_DB: movie_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    networks:
+      - movix_network
+
+  app:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      DATABASE_URL: "postgresql://postgres:khai@db:5432/movie_db?schema=public"
+    depends_on:
+      - db
+    networks:
+      - movix_network
+
+  prisma:
+    image: node:20-alpine
+    working_dir: /app
+    volumes:
+      - ./:/app
+    command: npx prisma db pull
+    environment:
+      DATABASE_URL: "postgresql://postgres:khai@db:5432/movie_db?schema=public"
+    networks:
+      - movix_network
+    depends_on:
+      - db
+    entrypoint: sh -c "apk add --no-cache openssl && npx prisma db pull"
+
+volumes:
+  db_data:
+
+networks:
+  movix_network:
+    driver: bridge
