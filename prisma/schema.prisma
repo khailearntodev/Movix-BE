@@ -1,0 +1,284 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model banners {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title      String
+  image_url  String?
+  link_url   String?
+  is_active  Boolean?  @default(true)
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at DateTime? @default(now()) @db.Timestamptz(6)
+  is_deleted Boolean?  @default(false)
+}
+
+model chatbot_logs {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id      String?   @db.Uuid
+  user_message String?
+  bot_response String?
+  created_at   DateTime? @default(now()) @db.Timestamptz(6)
+  is_deleted   Boolean?  @default(false)
+  users        users?    @relation(fields: [user_id], references: [id], onUpdate: NoAction)
+}
+
+model comments {
+  id                String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id           String     @db.Uuid
+  movie_id          String     @db.Uuid
+  comment           String?
+  parent_comment_id String?    @db.Uuid
+  is_hidden         Boolean?   @default(false)
+  created_at        DateTime?  @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime?  @default(now()) @db.Timestamptz(6)
+  is_deleted        Boolean?   @default(false)
+  movies            movies     @relation(fields: [movie_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  comments          comments?  @relation("commentsTocomments", fields: [parent_comment_id], references: [id], onUpdate: NoAction)
+  other_comments    comments[] @relation("commentsTocomments")
+  users             users      @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model countries {
+  id     String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name   String?  @db.VarChar(150)
+  movies movies[]
+}
+
+model episodes {
+  id             String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  season_id      String          @db.Uuid
+  episode_number Int
+  title          String?         @db.VarChar(300)
+  runtime        Int?
+  video_url      String?
+  created_at     DateTime?       @default(now()) @db.Timestamptz(6)
+  seasons        seasons         @relation(fields: [season_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  watch_history  watch_history[]
+  watch_parties  watch_parties[]
+}
+
+model favourites {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id    String    @db.Uuid
+  movie_id   String    @db.Uuid
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+  is_deleted Boolean?  @default(false)
+  movies     movies    @relation(fields: [movie_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users      users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model genres {
+  id           String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name         String         @unique
+  created_at   DateTime?      @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime?      @default(now()) @db.Timestamptz(6)
+  is_deleted   Boolean?       @default(false)
+  movie_genres movie_genres[]
+}
+
+model movie_genres {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  movie_id   String    @db.Uuid
+  genre_id   String    @db.Uuid
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+  is_deleted Boolean?  @default(false)
+  genres     genres    @relation(fields: [genre_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  movies     movies    @relation(fields: [movie_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model movie_people {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  movie_id    String    @db.Uuid
+  person_id   String    @db.Uuid
+  credit_type String    @db.VarChar(20)
+  character   String?   @db.VarChar(300)
+  ordering    Int?      @default(0)
+  created_at  DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime? @default(now()) @db.Timestamptz(6)
+  is_deleted  Boolean?  @default(false)
+  movies      movies    @relation(fields: [movie_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  people      people    @relation(fields: [person_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model movies {
+  id              String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  original_title  String
+  slug            String?           @unique
+  title           String
+  poster_url      String?
+  backdrop_url    String?
+  trailer_url     String?
+  description     String?
+  release_date    DateTime?         @db.Date
+  country_id      String?           @db.Uuid
+  metadata        Json?
+  is_active       Boolean?          @default(true)
+  created_at      DateTime?         @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime?         @default(now()) @db.Timestamptz(6)
+  is_deleted      Boolean?          @default(false)
+  comments        comments[]
+  favourites      favourites[]
+  movie_genres    movie_genres[]
+  movie_people    movie_people[]
+  countries       countries?        @relation(fields: [country_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  playlist_movies playlist_movies[]
+  ratings         ratings[]
+  seasons         seasons[]
+}
+
+model notifications {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id    String?   @db.Uuid
+  message    String
+  is_read    Boolean?  @default(false)
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at DateTime? @default(now()) @db.Timestamptz(6)
+  is_deleted Boolean?  @default(false)
+  users      users?    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model password_reset {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id     String    @db.Uuid
+  reset_token String
+  expires_at  DateTime  @db.Timestamptz(6)
+  created_at  DateTime? @default(now()) @db.Timestamptz(6)
+  is_used     Boolean?  @default(false)
+  users       users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model people {
+  id           String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name         String         @db.VarChar(300)
+  biography    String?
+  stage_name   String?        @db.VarChar(300)
+  birthday     DateTime?      @db.Date
+  gender       Boolean?
+  role_type    String         @db.VarChar(50)
+  avatar_url   String?
+  movie_people movie_people[]
+}
+
+model playlist_movies {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  playlist_id String    @db.Uuid
+  movie_id    String    @db.Uuid
+  created_at  DateTime? @default(now()) @db.Timestamptz(6)
+  is_deleted  Boolean?  @default(false)
+  movies      movies    @relation(fields: [movie_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  playlists   playlists @relation(fields: [playlist_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model playlists {
+  id              String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id         String            @db.Uuid
+  name            String
+  description     String?
+  created_at      DateTime?         @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime?         @default(now()) @db.Timestamptz(6)
+  is_deleted      Boolean?          @default(false)
+  playlist_movies playlist_movies[]
+  users           users             @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model ratings {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id    String    @db.Uuid
+  movie_id   String    @db.Uuid
+  rating     Int?
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at DateTime? @default(now()) @db.Timestamptz(6)
+  is_deleted Boolean?  @default(false)
+  movies     movies    @relation(fields: [movie_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users      users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model roles {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String    @unique
+  description String?
+  created_at  DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime? @default(now()) @db.Timestamptz(6)
+  is_deleted  Boolean?  @default(false)
+  users       users[]
+}
+
+model seasons {
+  id            String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  movie_id      String     @db.Uuid
+  season_number Int
+  title         String?    @db.VarChar(300)
+  overview      String?
+  created_at    DateTime?  @default(now()) @db.Timestamptz(6)
+  episodes      episodes[]
+  movies        movies     @relation(fields: [movie_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model users {
+  id                  String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  username            String                @unique
+  password            String
+  email               String                @unique
+  display_name        String
+  is_online           Boolean?
+  avatar_url          String?
+  preferences         Json?
+  role_id             String?               @db.Uuid
+  created_at          DateTime?             @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime?             @default(now()) @db.Timestamptz(6)
+  is_deleted          Boolean?              @default(false)
+  chatbot_logs        chatbot_logs[]
+  comments            comments[]
+  favourites          favourites[]
+  notifications       notifications[]
+  password_reset      password_reset[]
+  playlists           playlists[]
+  ratings             ratings[]
+  roles               roles?                @relation(fields: [role_id], references: [id], onUpdate: NoAction)
+  watch_history       watch_history[]
+  watch_parties       watch_parties[]
+  watch_party_members watch_party_members[]
+}
+
+model watch_history {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id    String    @db.Uuid
+  episode_id String    @db.Uuid
+  watched_at DateTime? @default(now()) @db.Timestamptz(6)
+  is_deleted Boolean?  @default(false)
+  episodes   episodes  @relation(fields: [episode_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users      users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model watch_parties {
+  id                  String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  host_user_id        String                @db.Uuid
+  episode_id          String?               @db.Uuid
+  title               String?
+  is_private          Boolean?              @default(false)
+  join_code           String?               @db.VarChar(10)
+  started_at          DateTime?             @db.Timestamptz(6)
+  is_active           Boolean?              @default(true)
+  created_at          DateTime?             @default(now()) @db.Timestamptz(6)
+  episodes            episodes?             @relation(fields: [episode_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users               users                 @relation(fields: [host_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  watch_party_members watch_party_members[]
+}
+
+model watch_party_members {
+  id            String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  party_id      String        @db.Uuid
+  user_id       String        @db.Uuid
+  joined_at     DateTime?     @default(now()) @db.Timestamptz(6)
+  role          String?       @default("participant") @db.VarChar(20)
+  watch_parties watch_parties @relation(fields: [party_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users         users         @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
