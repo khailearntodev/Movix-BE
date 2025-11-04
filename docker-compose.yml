@@ -12,21 +12,24 @@ services:
       - db_data:/var/lib/postgresql/data
     networks:
       - movix_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
   app:
     build: .
     ports:
       - "5000:5000"
-
     environment:
       DATABASE_URL: "postgresql://postgres:khai@db:5432/movie_db?schema=public"
-    command: sh -c "npx prisma migrate dev --name init && npm run start"
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+    command: sh -c "npx prisma migrate deploy && npx prisma db seed && npm run start"
     networks:
       - movix_network
-    volumes:
-      - ./prisma:/app/prisma
 
 volumes:
   db_data:
