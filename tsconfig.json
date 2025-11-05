@@ -7,7 +7,12 @@
         "strict": true,
         "esModuleInterop": true
     },
+    "include": [
+        "src"
+    ],
     "exclude": [
-        "prisma"
+        "node_modules",
+        "dist",
+        "prisma/seed.ts"
     ]
 }

@@ -3,25 +3,25 @@ import * as authController from '../controllers/auth.controller';
 
 const router = express.Router();
 
-// POST /api/v1/auth/register
+// POST /api/auth/register
 router.post('/register', authController.register);
 
-// POST /api/v1/auth/verify
+// POST /api/auth/verify
 router.post('/verify', authController.verify);
 
-// POST /api/v1/auth/login
+// POST /api/auth/login
 router.post('/login', authController.login);
 
-// POST /api/v1/auth/resend-verification
+// POST /api/auth/resend-verification
 router.post('/resend-verification', authController.resendVerification);
 
-// POST /api/v1/auth/forgot-password
+// POST /api/auth/forgot-password
 router.post('/forgot-password', authController.forgotPassword);
 
-// POST /api/v1/auth/reset-password
+// POST /api/auth/reset-password
 router.post('/reset-password', authController.resetPassword);
 
-// POST /api/v1/auth/logout
+// POST /api/auth/logout
 router.post('/logout', authController.logout);
 
 export default router;

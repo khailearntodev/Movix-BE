@@ -59,7 +59,7 @@ export const register = async (
 
   // 3. Lấy role "USER"
   const userRole = await prisma.role.findUnique({
-    where: { name: 'USER' },
+    where: { name: 'User' },
   });
   if (!userRole) {
     throw new Error('Không tìm thấy vai trò USER. Vui lòng seed database.');
@@ -135,6 +135,11 @@ export const login = async (email: string, password: string) => {
   // 1. Tìm user
   const user = await prisma.user.findUnique({
     where: { email },
+    include: {
+      role: {
+        select: { name: true }, 
+      },
+    },
   });
 
   if (!user) {
@@ -166,6 +171,7 @@ export const login = async (email: string, password: string) => {
     id: user.id,
     username: user.username,
     email: user.email,
+    role: user.role?.name,
     ...tokens,
   };
 };

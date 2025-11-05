@@ -8,6 +8,8 @@ RUN npm ci --include=dev
 
 COPY . .
 
+RUN npx prisma generate   # <<< thêm dòng này
+
 RUN npm run build
 
 CMD ["npm", "run", "start"]

@@ -1,6 +1,5 @@
 import nodemailer from 'nodemailer';
 
-// === ĐỌC BIẾN MÔI TRƯỜNG ===
 const host = process.env.SMTP_HOST;
 const port = parseInt(process.env.SMTP_PORT || '587');
 const user = process.env.SMTP_USER;
@@ -8,8 +7,12 @@ const pass = process.env.SMTP_PASS;
 const from = process.env.SMTP_FROM || user;
 const appName = process.env.APP_NAME || 'Movix';
 const supportEmail = process.env.SUPPORT_EMAIL || from;
-const logoUrl = process.env.LOGO_URL || '';
-const bannerUrl = process.env.BANNER_URL || '';
+
+// 1. Gán link banner mới
+const bannerUrl =
+  'https://www.devicemag.com/wp-content/uploads/2023/03/netflix-error-22004-2.jpg';
+// 2. Xóa logoUrl
+// const logoUrl = process.env.LOGO_URL || ''; 
 
 if (!user || !pass) {
   console.warn(
@@ -20,10 +23,10 @@ if (!user || !pass) {
 const transporter = nodemailer.createTransport({
   host: host,
   port: port,
-  secure: port === 465, 
+  secure: port === 465,
   auth: {
     user: user,
-    pass: pass, 
+    pass: pass,
   },
 });
 
@@ -51,7 +54,6 @@ export const sendVerificationEmail = async (
   const expiresMinutes = options.expiresMinutes ?? 10;
   const subject = `${appName} — Mã xác thực tài khoản của bạn`;
 
-
   const text = [
     `Chào mừng đến với ${appName}!`,
     `Mã xác thực của bạn là: ${otp}`,
@@ -70,7 +72,6 @@ export const sendVerificationEmail = async (
       body { margin: 0; padding: 0; background-color: #141414; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; }
       .container { width: 100%; max-width: 600px; margin: 0 auto; background-color: #222222; border-radius: 8px; overflow: hidden; }
       .header { padding: 20px 24px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #333; }
-      .logo { max-width: 30px; }
       .appName { font-weight: 600; font-size: 18px; color: #F5F5F5; }
       .banner img { width: 100%; height: auto; display: block; }
       .content { padding: 28px 24px 16px 24px; }
@@ -88,16 +89,12 @@ export const sendVerificationEmail = async (
         <td align="center">
           <table class="container" role="presentation" cellpadding="0" cellspacing="0" width="600" style="max-width:600px;background-color:#222222;border-radius:8px;overflow:hidden;">
             ${
-              bannerUrl
-                ? `<tr><td class="banner"><img src="${escapeHtml(bannerUrl)}" alt="Movix Banner" style="width:100%;height:auto;display:block;" /></td></tr>`
-                : ''
+              `<tr><td class="banner"><img src="${escapeHtml(bannerUrl)}" alt="Movix Banner" style="width:100%;height:auto;display:block;" /></td></tr>`
             }
             <tr>
               <td class="header" style="padding:20px 24px;border-bottom:1px solid #333;display:flex;align-items:center;gap:12px;">
                 ${
-                  logoUrl
-                    ? `<img src="${escapeHtml(logoUrl)}" alt="${escapeHtml(appName)} Logo" class="logo" style="max-width:30px;" />`
-                    : ''
+                  ''
                 }
                 <div class="appName" style="font-weight:600;font-size:18px;color:#F5F5F5;">${escapeHtml(appName)}</div>
               </td>
@@ -135,7 +132,7 @@ export const sendVerificationEmail = async (
   </html>
   `;
 
-  // === GỬI EMAIL RESET MẬt KHẨU===
+  // === GỬI EMAIL XÁC THỰC ===
   try {
     await transporter.sendMail({
       from: `"${appName}" <${from}>`,
@@ -151,7 +148,6 @@ export const sendVerificationEmail = async (
   }
 };
 
-
 export const sendPasswordResetEmail = async (
   to: string,
   token: string,
@@ -159,9 +155,9 @@ export const sendPasswordResetEmail = async (
 ) => {
   const name = options.name ? escapeHtml(options.name) : '';
   const expiresMinutes = options.expiresMinutes ?? 10;
-  
+
   const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
-  
+
   const subject = `${appName} — Yêu cầu đặt lại mật khẩu`;
   const text = [
     `Chào ${name || 'bạn'},`,
@@ -183,7 +179,6 @@ export const sendPasswordResetEmail = async (
       body { margin: 0; padding: 0; background-color: #141414; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; }
       .container { width: 100%; max-width: 600px; margin: 0 auto; background-color: #222222; border-radius: 8px; overflow: hidden; }
       .header { padding: 20px 24px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #333; }
-      .logo { max-width: 30px; }
       .appName { font-weight: 600; font-size: 18px; color: #F5F5F5; }
       .banner img { width: 100%; height: auto; display: block; }
       .content { padding: 28px 24px 16px 24px; }
@@ -201,16 +196,13 @@ export const sendPasswordResetEmail = async (
         <td align="center">
           <table class="container" role="presentation" cellpadding="0" cellspacing="0" width="600" style="max-width:600px;background-color:#222222;border-radius:8px;overflow:hidden;">
             ${
-              bannerUrl
-                ? `<tr><td class="banner"><img src="${escapeHtml(bannerUrl)}" alt="Movix Banner" style="width:100%;height:auto;display:block;" /></td></tr>`
-                : ''
+              `<tr><td class="banner"><img src="${escapeHtml(bannerUrl)}" alt="Movix Banner" style="width:100%;height:auto;display:block;" /></td></tr>`
             }
             <tr>
               <td class="header" style="padding:20px 24px;border-bottom:1px solid #333;display:flex;align-items:center;gap:12px;">
                 ${
-                  logoUrl
-                    ? `<img src="${escapeHtml(logoUrl)}" alt="${escapeHtml(appName)} Logo" class="logo" style="max-width:30px;" />`
-                    : ''
+
+                  ''
                 }
                 <div class="appName" style="font-weight:600;font-size:18px;color:#F5F5F5;">${escapeHtml(appName)}</div>
               </td>
