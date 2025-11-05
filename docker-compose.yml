@@ -18,9 +18,10 @@ services:
     ports:
       - "5000:5000"
 
-    environment:
-      DATABASE_URL: "postgresql://postgres:khai@db:5432/movie_db?schema=public"
-    command: sh -c "npx prisma migrate dev --name init && npm run start"
+    env_file:
+      - ./.env
+
+    command: sh -c "npx prisma migrate dev && npm run prisma:seed && npm run start"
     depends_on:
       - db
     networks:

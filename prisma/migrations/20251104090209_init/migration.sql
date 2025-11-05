@@ -33,6 +33,8 @@ CREATE TABLE "User" (
     "status" "UserStatus" NOT NULL DEFAULT 'pending_verification',
     "is_flagged" BOOLEAN NOT NULL DEFAULT false,
     "last_login_at" TIMESTAMP(3),
+    "verificationCode" TEXT,
+    "verificationExpires" TIMESTAMP(3),
 
     CONSTRAINT "User_pkey" PRIMARY KEY ("id")
 );
@@ -62,6 +64,7 @@ CREATE TABLE "Movie" (
     "id" UUID NOT NULL,
     "original_title" TEXT NOT NULL,
     "slug" TEXT,
+    "tmdb_id" INTEGER,
     "title" TEXT NOT NULL,
     "poster_url" TEXT,
     "backdrop_url" TEXT,
@@ -341,6 +344,17 @@ CREATE TABLE "SectionMovieLink" (
     CONSTRAINT "SectionMovieLink_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "refresh_tokens" (
+    "id" UUID NOT NULL,
+    "token" TEXT NOT NULL,
+    "expiresAt" TIMESTAMP(3) NOT NULL,
+    "userId" UUID NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "refresh_tokens_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "Role_name_key" ON "Role"("name");
 
@@ -351,7 +365,13 @@ CREATE UNIQUE INDEX "User_username_key" ON "User"("username");
 CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "PasswordReset_reset_token_key" ON "PasswordReset"("reset_token");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "Movie_slug_key" ON "Movie"("slug");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Movie_tmdb_id_key" ON "Movie"("tmdb_id");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Genre_name_key" ON "Genre"("name");
@@ -388,6 +408,9 @@ CREATE UNIQUE INDEX "WatchPartyMember_party_id_user_id_key" ON "WatchPartyMember
 
 -- CreateIndex
 CREATE UNIQUE INDEX "SectionMovieLink_section_id_movie_id_key" ON "SectionMovieLink"("section_id", "movie_id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "refresh_tokens_token_key" ON "refresh_tokens"("token");
 
 -- AddForeignKey
 ALTER TABLE "User" ADD CONSTRAINT "User_role_id_fkey" FOREIGN KEY ("role_id") REFERENCES "Role"("id") ON DELETE SET NULL ON UPDATE CASCADE;
@@ -484,3 +507,6 @@ ALTER TABLE "SectionMovieLink" ADD CONSTRAINT "SectionMovieLink_section_id_fkey"
 
 -- AddForeignKey
 ALTER TABLE "SectionMovieLink" ADD CONSTRAINT "SectionMovieLink_movie_id_fkey" FOREIGN KEY ("movie_id") REFERENCES "Movie"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "refresh_tokens" ADD CONSTRAINT "refresh_tokens_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;

@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,7 +7,7 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Enum cho trạng thái người dùng (từ SQL 'user_status')
+// Enum cho trạng thái người dùng 
 enum UserStatus {
   active
   inactive
@@ -18,7 +15,7 @@ enum UserStatus {
   pending_verification
 }
 
-// Enum cho loại credit (từ SQL CHECK 'credit_type')
+// Enum cho loại credit 
 enum CreditType {
   cast
   crew
@@ -35,24 +32,27 @@ model Role {
 }
 
 model User {
-  id            String     @id @default(uuid()) @db.Uuid
-  username      String     @unique
-  password      String
-  email         String     @unique
-  display_name  String
-  is_online     Boolean?
-  avatar_url    String?
-  preferences   Json?
-  role_id       String?    @db.Uuid // Khóa ngoại cũng phải là Uuid
-  created_at    DateTime   @default(now())
-  updated_at    DateTime   @updatedAt
-  is_deleted    Boolean    @default(false)
-  status        UserStatus @default(pending_verification)
-  is_flagged    Boolean    @default(false)
-  last_login_at DateTime?
+  id                  String     @id @default(uuid()) @db.Uuid
+  username            String     @unique
+  password            String
+  email               String     @unique
+  display_name        String
+  is_online           Boolean?
+  avatar_url          String?
+  preferences         Json?
+  role_id             String?    @db.Uuid
+  created_at          DateTime   @default(now())
+  updated_at          DateTime   @updatedAt
+  is_deleted          Boolean    @default(false)
+  status              UserStatus @default(pending_verification)
+  is_flagged          Boolean    @default(false)
+  last_login_at       DateTime?
+  verificationCode    String?
+  verificationExpires DateTime?
 
   // Relations
   role                 Role?              @relation(fields: [role_id], references: [id], onDelete: SetNull)
+  refreshTokens        RefreshToken[]
   password_resets      PasswordReset[]
   ratings              Rating[]
   comments             Comment[]
@@ -70,7 +70,7 @@ model User {
 model PasswordReset {
   id          String   @id @default(uuid()) @db.Uuid
   user_id     String   @db.Uuid
-  reset_token String
+  reset_token String   @unique
   expires_at  DateTime
   created_at  DateTime @default(now())
   is_used     Boolean  @default(false)
@@ -87,6 +87,7 @@ model Movie {
   id             String    @id @default(uuid()) @db.Uuid
   original_title String
   slug           String?   @unique
+  tmdb_id        Int?      @unique
   title          String
   poster_url     String?
   backdrop_url   String?
@@ -382,4 +383,16 @@ model SectionMovieLink {
   movie   Movie           @relation(fields: [movie_id], references: [id], onDelete: Cascade)
 
   @@unique([section_id, movie_id])
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid()) @db.Uuid
+  token     String   @unique
+  expiresAt DateTime
+  userId    String   @db.Uuid
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@map("refresh_tokens")
 }
