@@ -1,4 +1,5 @@
 # ───────────── Logs ─────────────
+# ───────────── Logs ─────────────
 logs
 *.log
 npm-debug.log*
@@ -6,6 +7,8 @@ yarn-debug.log*
 yarn-error.log*
 lerna-debug.log*
 
+# Diagnostic reports
+report.*.json
 # Diagnostic reports
 report.*.json
 
@@ -16,10 +19,16 @@ pids
 *.pid.lock
 
 # Coverage directory
+# Coverage directory
 coverage
 *.lcov
 .nyc_output
 
+# Build output (TypeScript)
+dist/
+build/
+
+# Compiled addons
 # Build output (TypeScript)
 dist/
 build/
@@ -37,19 +46,26 @@ node_modules/
 .npm
 
 # ESLint cache
+# ESLint cache
 .eslintcache
 
+# Stylelint cache
 # Stylelint cache
 .stylelintcache
 
 # REPL history
+# REPL history
 .node_repl_history
 
+# dotenv env files
 # dotenv env files
 .env
 .env.*            # remove when needed
 !.env.example     # keep template
+.env.*            # remove when needed
+!.env.example     # keep template
 
+# Parcel cache
 # Parcel cache
 .cache
 .parcel-cache
@@ -58,11 +74,14 @@ node_modules/
 .serverless/
 
 # Firebase cache
+# Firebase cache
 .firebase/
 
 # VSCode testing
+# VSCode testing
 .vscode-test
 
+# Yarn v3
 # Yarn v3
 .pnp.*
 .yarn/*
@@ -72,6 +91,7 @@ node_modules/
 !.yarn/sdks
 !.yarn/versions
 
+# Vite logs
 # Vite logs
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*

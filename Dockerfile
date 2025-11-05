@@ -3,9 +3,13 @@ FROM node:20
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm install
+
+RUN npm ci --include=dev
 
 COPY . .
 
-# Chạy TypeScript bằng ts-node
-CMD ["npx", "ts-node", "src/index.ts"]
+RUN npx prisma generate   # <<< thêm dòng này
+
+RUN npm run build
+
+CMD ["npm", "run", "start"]
