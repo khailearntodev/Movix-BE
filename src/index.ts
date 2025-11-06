@@ -6,6 +6,7 @@ import genreRouter from './routes/genre.routes';
 import countryRouter from './routes/country.routes';
 import authRoutes from './routes/auth.routes';
 import userRouter from './routes/user.routes';
+import interactionRoutes from './routes/interaction.routes';
 
 dotenv.config();
 
@@ -22,6 +23,7 @@ app.use(cors({
 app.use(express.json()); 
 app.use('/api/auth', authRoutes);
 app.use('/api/profile', userRouter);
+app.use('/api/interact', interactionRoutes);
 app.use('/api/movies', movieRouter);
 app.use('/api/genres', genreRouter);
 app.use('/api/countries', countryRouter);
