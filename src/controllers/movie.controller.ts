@@ -4,7 +4,30 @@ import { Prisma } from '@prisma/client';
 import { prisma } from "../lib/prisma";
 
 export const movieController = {
+  
+  getAllGenres: async (req: Request, res: Response) => {
+    try {
+      const genres = await prisma.genre.findMany({
+        orderBy: { name: 'asc' } 
+      });
+      res.status(200).json(genres);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: 'Lỗi máy chủ khi lấy genres' });
+    }
+  },
 
+  getAllCountries: async (req: Request, res: Response) => {
+    try {
+      const countries = await prisma.country.findMany({
+        orderBy: { name: 'asc' }
+      });
+      res.status(200).json(countries);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: 'Lỗi máy chủ khi lấy countries' });
+    }
+  },
 
   getTrendingMovies: async (req: Request, res: Response) => {
     try {
@@ -113,6 +136,89 @@ export const movieController = {
     } catch (error) {
       console.error(error);
       res.status(500).json({ error: 'Lỗi máy chủ' });
+    }
+  },
+
+  filterMovies: async (req: Request, res: Response) => {
+    try {
+      const { q, type, genre, country, year } = req.query;
+      const where: Prisma.MovieWhereInput = {
+        is_active: true,
+        is_deleted: false,
+      };
+
+      if (typeof q === 'string' && q.trim()) {
+        where.title = {
+          contains: q.trim(),
+          mode: 'insensitive',
+        };
+      }
+
+      if (typeof type === 'string' && type !== 'Tất cả') {
+        if (type === 'phim-bo') {
+          where.seasons = {
+            some: {},
+          };
+        } else if (type === 'phim-le') {
+          where.seasons = {
+            none: {},
+          };
+        }
+      }
+
+      if (typeof genre === 'string' && genre !== 'Tất cả') {
+        where.movie_genres = {
+          some: {
+            genre: {
+              name: {
+                equals: genre,
+                mode: 'insensitive',
+              },
+            },
+          },
+        };
+      }
+
+      if (typeof country === 'string' && country !== 'Tất cả') {
+        where.country = {
+          name: {
+            equals: country,
+            mode: 'insensitive',
+          },
+        };
+      }
+
+      if (typeof year === 'string' && year !== 'Tất cả') {
+         const numericYear = parseInt(year);
+         if (!isNaN(numericYear)) {
+           const startDate = new Date(numericYear, 0, 1); 
+           const endDate = new Date(numericYear, 11, 31); 
+           where.release_date = {
+             gte: startDate,
+             lte: endDate,
+           };
+         }
+      }
+
+      const movies = await prisma.movie.findMany({
+        where,
+        include: {
+          country: true,
+          movie_genres: {
+            include: { genre: true },
+          },
+        },
+        orderBy: {
+          release_date: 'desc',
+        },
+        take: 35,
+      });
+
+      res.status(200).json(movies);
+      
+    } catch (error: any) {
+      console.error("Lỗi khi lọc phim:", error);
+      res.status(500).json({ message: error.message || 'Lỗi máy chủ nội bộ' });
     }
   },
 

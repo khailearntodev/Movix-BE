@@ -2,6 +2,25 @@ import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 const prisma = new PrismaClient();
 
+const allGenres = [
+  'Anime', 'Bí Ẩn', 'Chiến Tranh', 'Chiếu Rạp', 'Chuyển Thể', 'Chính Kịch', 
+  'Chính Luận', 'Chính Trị', 'Chương Trình Truyền Hình', 'Concert Film', 'Cung Đấu', 
+  'Cuối Tuần', 'Cách Mạng', 'Cổ Trang', 'Cổ Tích', 'Cổ Điển', 'DC', 'Disney', 
+  'Gay Cấn', 'Gia Đình', 'Giáng Sinh', 'Giả Tưởng', 'Hoàng Cung', 'Hoạt Hình', 
+  'Hài', 'Hành Động', 'Hình Sự', 'Học Đường', 'Khoa Học', 'Kinh Dị', 'Kinh Điển', 
+  'Kịch Nói', 'Kỳ Ảo', 'LGBT+', 'Live Action', 'Lãng Mạn', 'Lịch Sử', 'Marvel', 
+  'Miền Viễn Tây', 'Nghề Nghiệp', 'Người Mẫu', 'Nhạc Kịch', 'Phiêu Lưu', 
+  'Phép Thuật', 'Siêu Anh Hùng', 'Thiếu Nhi', 'Thần Thoại', 'Thể Thao', 
+  'Truyền Hình Thực Tế', 'Tuổi Teen', 'Tội phạm', 'Tâm Lý', 'Tình Cảm', 
+  'Tập Luyện', 'Viễn Tưởng', 'Võ Thuật', 'Xuyên Không', 'Đấu Thương', 'Đời Thường', 
+  'Ẩm Thực'
+];
+
+const allCountries = [
+  'Anh', 'Canada', 'Hàn Quốc', 'Hồng Kông', 'Mỹ', 'Nhật Bản', 'Pháp', 
+  'Thái Lan', 'Trung Quốc', 'Úc', 'Đài Loan', 'Đức', 'Việt Nam' 
+];
+
 async function main() {
   console.log('Clearing old data...');
   await prisma.sectionMovieLink.deleteMany();
@@ -63,15 +82,33 @@ async function main() {
   });
 
   console.log('Seeding countries...');
-  const us = await prisma.country.create({ data: { name: 'United States' } });
-  const kr = await prisma.country.create({ data: { name: 'South Korea' } });
-  const vn = await prisma.country.create({ data: { name: 'Vietnam' } });
+  await prisma.country.createMany({
+    data: allCountries.map(name => ({ name })),
+    skipDuplicates: true,
+  });
+
+  const us = await prisma.country.findFirst({ where: { name: 'Mỹ' } });
+  const kr = await prisma.country.findFirst({ where: { name: 'Hàn Quốc' } });
+  const vn = await prisma.country.findFirst({ where: { name: 'Việt Nam' } });
+
+  if (!us || !kr || !vn) {
+      throw new Error("Không thể tìm thấy các quốc gia cơ bản (Mỹ, Hàn Quốc, Việt Nam) sau khi seed.");
+  }
 
   console.log('Seeding genres...');
-  const action = await prisma.genre.create({ data: { name: 'Action' } });
-  const drama = await prisma.genre.create({ data: { name: 'Drama' } });
-  const sciFi = await prisma.genre.create({ data: { name: 'Sci-Fi' } });
-  const thriller = await prisma.genre.create({ data: { name: 'Thriller' } });
+  await prisma.genre.createMany({
+    data: allGenres.map(name => ({ name })),
+    skipDuplicates: true, 
+  });
+
+  const hanhDong = await prisma.genre.findUnique({ where: { name: 'Hành Động' } });
+  const vienTuong = await prisma.genre.findUnique({ where: { name: 'Viễn Tưởng' } }); // Dùng cho Inception (Sci-Fi)
+  const chinhKich = await prisma.genre.findUnique({ where: { name: 'Chính Kịch' } }); // Dùng cho Parasite & Bố Già (Drama)
+  const gayCan = await prisma.genre.findUnique({ where: { name: 'Gay Cấn' } }); // Dùng cho Parasite (Thriller)
+
+  if (!hanhDong || !vienTuong || !chinhKich || !gayCan) {
+    throw new Error("Không thể tìm thấy các thể loại cơ bản (Hành Động, Viễn Tưởng,...) sau khi seed.");
+  }
 
   console.log('Seeding movies...');
   const inception = await prisma.movie.create({
@@ -113,11 +150,11 @@ async function main() {
   console.log('Seeding movie genres...');
   await prisma.movieGenre.createMany({
     data: [
-      { movie_id: inception.id, genre_id: action.id },
-      { movie_id: inception.id, genre_id: sciFi.id },
-      { movie_id: parasite.id, genre_id: drama.id },
-      { movie_id: parasite.id, genre_id: thriller.id },
-      { movie_id: phimViet.id, genre_id: drama.id },
+      { movie_id: inception.id, genre_id: hanhDong.id },
+      { movie_id: inception.id, genre_id: vienTuong.id },
+      { movie_id: parasite.id, genre_id: chinhKich.id }, 
+      { movie_id: parasite.id, genre_id: gayCan.id }, 
+      { movie_id: phimViet.id, genre_id: chinhKich.id },
     ],
   });
 
