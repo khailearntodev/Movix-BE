@@ -3,6 +3,19 @@ import { movieController } from '../controllers/movie.controller';
 
 const router = Router();
 
+
+// ===  ROUTE TẠO PHIM (Cho ADMIN) ===
+// POST /api/movies
+router.post('/', movieController.createMovie);
+
+// === ROUTE FETCH TMDB TV (CHO ADMIN) ===
+// GET /tbdb/tv/:tmdbId
+router.get('/tmdb/tv/:tmdbId', movieController.getTmdbTvDetails);
+
+// === ROUTE FETCH TMDB MOVIE (CHO ADMIN) ===
+// GET /tmdb/tv/:tmdbId
+router.get('/tmdb/details/:tmdbId', movieController.getTmdbDetails);
+
 // GET /api/movies/genres (Lấy tất cả thể loại)
 router.get('/genres', movieController.getAllGenres);
 
@@ -29,6 +42,9 @@ router.get('/by-genre/:genreId', movieController.getByGenre);
 
 // GET /api/movies/trendingtmdb    
 router.get('/trendingtmdb', movieController.getTrending);
+
+// GET /api/movies/tmdb/details/:tmdbId
+router.get('/tmdb/details/:tmdbId', movieController.getTmdbDetails);
 
 // GET /api/movies/:slug
 router.get('/:slug', movieController.getMovieBySlug);

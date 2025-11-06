@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, MediaType } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 const prisma = new PrismaClient();
 
@@ -121,6 +121,7 @@ async function main() {
       release_date: new Date('2010-07-16'),
       country_id: us.id,
       metadata: { tmdb_rating: 8.8, popularity: 90 },
+      media_type: MediaType.MOVIE,
     },
   });
   const parasite = await prisma.movie.create({
@@ -133,6 +134,7 @@ async function main() {
       release_date: new Date('2019-05-30'),
       country_id: kr.id,
       metadata: { tmdb_rating: 8.6 },
+      media_type: MediaType.MOVIE,
     },
   });
   const phimViet = await prisma.movie.create({
@@ -144,6 +146,7 @@ async function main() {
       release_date: new Date('2021-03-05'),
       country_id: vn.id,
       metadata: { local: true },
+      media_type: MediaType.TV,
     },
   });
 
