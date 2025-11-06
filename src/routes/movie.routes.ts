@@ -13,13 +13,16 @@ router.get('/search', movieController.search);
 // GET /api/movies/episodes/:id/play (id là episodeId)
 router.get('/episodes/:id/play', movieController.getEpisodePlaybackUrl);
 
-// GET /api/movies/:slug
-router.get('/:slug', movieController.getMovieBySlug);
-
-// GET /api/movies/popular-shows
-router.get('/popular-shows', movieController.getPopularShows);
+// GET /api/movies/popular-showstmdb
+router.get('/popular-showstmdb', movieController.getPopularShows);
 
 // GET /api/movies/by-genre/id (id cua the laoij phim)
 router.get('/by-genre/:genreId', movieController.getByGenre);
+
+// GET /api/movies/trendingtmdb    
+router.get('/trendingtmdb', movieController.getTrending);
+
+// GET /api/movies/:slug
+router.get('/:slug', movieController.getMovieBySlug);
 
 export default router;
