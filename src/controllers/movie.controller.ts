@@ -1,7 +1,22 @@
 import { Request, Response } from 'express';
 import * as tmdbService from '../services/tmdb.service';
-import { Prisma } from '@prisma/client';
+import { CreditType, Prisma,MediaType } from '@prisma/client';
 import { prisma } from "../lib/prisma";
+import { error } from 'console';
+
+function createSlug(text: string) {
+  return text
+    .toLowerCase()
+    .replace(/đ/g, 'd')
+    .replace(/[àáạảãâầấậẩẫăằắặẳẵ]/g, 'a')
+    .replace(/[èéẹẻẽêềếệểễ]/g, 'e')
+    .replace(/[ìíịỉĩ]/g, 'i')
+    .replace(/[òóọỏõôồốộổỗơờớợởỡ]/g, 'o')
+    .replace(/[ùúụủũưừứựửữ]/g, 'u')
+    .replace(/[ỳýỵỷỹ]/g, 'y')
+    .replace(/ /g, '-')
+    .replace(/[^\w-]+/g, ''); 
+}
 
 export const movieController = {
   
@@ -166,18 +181,25 @@ export const movieController = {
         }
       }
 
-      if (typeof genre === 'string' && genre !== 'Tất cả') {
-        where.movie_genres = {
-          some: {
-            genre: {
-              name: {
-                equals: genre,
-                mode: 'insensitive',
-              },
-            },
-          },
-        };
-      }
+      if (genre && genre !== 'Tất cả') {
+        const genreQuery = Array.isArray(genre) 
+            ? (genre as string[]) 
+            : [genre as string];
+        const validGenres = genreQuery.filter(g => g && g !== 'Tất cả');
+
+        if (validGenres.length > 0) {
+            where.movie_genres = {
+              some: {
+                genre: {
+                  name: {
+                    in: validGenres, 
+                    mode: 'insensitive',
+                  },
+                },
+              },
+            };
+        }
+      }
 
       if (typeof country === 'string' && country !== 'Tất cả') {
         where.country = {
@@ -197,7 +219,7 @@ export const movieController = {
              gte: startDate,
              lte: endDate,
            };
-         }
+         }   
       }
 
       const movies = await prisma.movie.findMany({
@@ -251,5 +273,233 @@ export const movieController = {
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
+  },
+
+  getTmdbDetails: async (req: Request, res: Response) => {
+    try {
+      const { tmdbId } = req.params;
+      if (!tmdbId) {
+        return res.status(400).json({ error: 'Thiếu TMDB ID' });
+      }
+
+      const movieDetails = await tmdbService.getTmdbMovieDetails(tmdbId);
+      res.status(200).json(movieDetails);
+
+    } catch (error: any){
+      res.status(500).json({ message: error.message || 'Lỗi máy chủ' });
+    }
+  },
+
+  getTmdbTvDetails: async (req: Request, res: Response) => {
+    try {
+      const { tmdbId } = req.params;
+      if (!tmdbId) {
+        return res.status(400).json({ error: 'Thiếu TMDB ID' });
+      }
+
+      const showDetails = await tmdbService.getTmdbTvShowDetails(tmdbId);
+      res.status(200).json(showDetails);
+
+    } catch (error: any) {
+      console.error("Lỗi khi lấy TMDB TV details:", error);
+      res.status(500).json({ message: error.message || 'Lỗi máy chủ' });
+    }
+  },
+
+  createMovie: async (req: Request, res: Response) => {
+    console.log("SERVER NHẬN ĐƯỢC BODY:", req.body);
+    const {
+      // Step 1
+      movieTitle,
+      originalTitle,
+      releaseDate,
+      overview,
+      posterUrl,
+      backdropUrl,
+      selectedCountry,
+      selectedGenres,
+      selectedMovieType,
+      tmdb_id, 
+      // Step 2
+      singleMovieFile, 
+      seasons, 
+      // Step 3
+      people 
+    } = req.body;
+
+    if (!movieTitle) {
+      return res.status(400).json({ error: 'Tên phim là bắt buộc' });
+    }
+    if (!selectedCountry) {
+        return res.status(400).json({ error: 'Quốc gia là bắt buộc' });
+    }
+
+    try {
+      const result = await prisma.$transaction(async (tx) => {
+        // --- 1. Xử lý Quốc gia ---
+        const country = await tx.country.upsert({
+          where: { name: selectedCountry },
+          update: {},
+          create: { name: selectedCountry },
+        });
+
+        // --- 2. Tạo Phim (Movie) ---
+        const movieSlug = createSlug(movieTitle);
+        const mediaType: MediaType = (selectedMovieType === 'series') ? 'TV' : 'MOVIE';
+        const newMovie = await tx.movie.create({
+          data: {
+            title: movieTitle,
+            original_title: originalTitle || movieTitle,
+            slug: `${movieSlug}-${Date.now()}`, 
+            tmdb_id: tmdb_id ? parseInt(tmdb_id) : null,
+            media_type: mediaType,
+            description: overview,
+            release_date: releaseDate ? new Date(releaseDate) : null,
+            poster_url: posterUrl,
+            backdrop_url: backdropUrl,
+            country_id: country.id,
+            is_active: true, 
+            is_deleted: false,
+          },
+        });
+
+        // --- 3. Xử lý Thể loại (Genres) ---
+        if (selectedGenres && Array.isArray(selectedGenres) && selectedGenres.length > 0) {
+          const genreLinks = await Promise.all(
+            selectedGenres.map(async (genre: { id: string, name: string }) => {
+              const dbGenre = await tx.genre.upsert({
+                where: { name: genre.name },
+                update: {},
+                create: { name: genre.name },
+              });
+              return {
+                movie_id: newMovie.id,
+                genre_id: dbGenre.id,
+              };
+            })
+          );
+          await tx.movieGenre.createMany({
+            data: genreLinks,
+          });
+        }
+
+        // --- 4. Xử lý Diễn viên/Đạo diễn (People)  ---
+        if (people && Array.isArray(people) && people.length > 0) {
+          const peopleLinks = await Promise.all(
+            people.map(async (person: any, index: number) => {
+              
+              const personTmdbId = person.id ? parseInt(person.id) : null;
+              
+              let dbPerson;
+              if (personTmdbId) {
+                dbPerson = await tx.person.upsert({
+                    where: { tmdb_id: personTmdbId },
+                    create: {
+                      tmdb_id: personTmdbId,
+                      name: person.name,
+                      avatar_url: person.avatarUrl,
+                      role_type: person.role,
+                    },
+                    update: {
+                      name: person.name,
+                      avatar_url: person.avatarUrl,
+                      role_type: person.role,
+                    },
+                });
+              } else {
+                 dbPerson = await tx.person.create({
+                    data: {
+                        name: person.name,
+                        avatar_url: person.avatarUrl,
+                        role_type: person.role,
+                        tmdb_id: null 
+                    }
+                });
+              }
+              return {
+                movie_id: newMovie.id,
+                person_id: dbPerson.id,
+                character: person.character,
+                credit_type: person.role === 'director' ? CreditType.crew : CreditType.cast, 
+                ordering: index + 1,
+              };
+            })
+          );
+          await tx.moviePerson.createMany({
+            data: peopleLinks,
+          });
+        }
+
+        // --- 5. Xử lý Tập phim (Episodes/Seasons) ---
+        if (selectedMovieType === 'series' && seasons && Array.isArray(seasons) && seasons.length > 0) {
+          // --- PHIM BỘ ---
+          for (const [seasonIndex, season] of seasons.entries()) {
+            const newSeason = await tx.season.create({
+              data: {
+                movie_id: newMovie.id,
+                season_number: seasonIndex + 1,
+                title: (season as any).name, 
+              },
+            });
+            
+            if ((season as any).episodes && Array.isArray((season as any).episodes)) {
+              const validEpisodes = (season as any).episodes
+                .filter((ep: any) => ep.title && ep.fileName)
+                .map((ep: any, epIndex: number) => ({
+                  season_id: newSeason.id, 
+                  episode_number: epIndex + 1,
+                  title: ep.title,
+                  video_url: ep.fileName,
+                  runtime: ep.duration, 
+                }));
+
+              if (validEpisodes.length > 0) {
+                await tx.episode.createMany({
+                  data: validEpisodes,
+                });
+              }
+            }
+          }
+        }
+        else if (selectedMovieType === 'single' && singleMovieFile) {
+          // --- PHIM LẺ ---
+          const dummySeason = await tx.season.create({
+              data: {
+                  movie_id: newMovie.id,
+                  season_number: 1, 
+                  title: "Season 1", 
+              }
+          });
+
+          await tx.episode.create({
+            data: {
+              season_id: dummySeason.id, 
+              episode_number: 1,
+              title: "Bản đầy đủ",
+              video_url: (singleMovieFile as any).fileName, 
+              runtime: (singleMovieFile as any).duration || 0,
+            },
+          });
+        }
+        return newMovie;
+      });
+        res.status(201).json({ 
+        message: "Tạo phim thành công!", 
+        data: result 
+      });
+    
+    } catch (error: any) {
+      console.error("Lỗi khi tạo phim:", error);
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        const target = (error.meta?.target as string[])?.join(', '); 
+        return res.status(409).json({ // 409 Conflict
+          message: `Thất bại. Đã tồn tại phim với ${target} này.`,
+          error: `Unique constraint violation on ${target}`
+        });
+      res.status(500).json({ 
+        message: error.message || 'Lỗi máy chủ khi tạo phim' 
+      });
+    }
+    }
   }
-};
+}

@@ -4,6 +4,9 @@ CREATE TYPE "UserStatus" AS ENUM ('active', 'inactive', 'locked', 'pending_verif
 -- CreateEnum
 CREATE TYPE "CreditType" AS ENUM ('cast', 'crew');
 
+-- CreateEnum
+CREATE TYPE "MediaType" AS ENUM ('MOVIE', 'TV');
+
 -- CreateTable
 CREATE TABLE "Role" (
     "id" UUID NOT NULL,
@@ -54,17 +57,18 @@ CREATE TABLE "PasswordReset" (
 -- CreateTable
 CREATE TABLE "Country" (
     "id" UUID NOT NULL,
-    "name" VARCHAR(150),
+    "name" VARCHAR(150) NOT NULL,
 
     CONSTRAINT "Country_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
-CREATE TABLE "Movie" (
+CREATE TABLE "movies" (
     "id" UUID NOT NULL,
     "original_title" TEXT NOT NULL,
     "slug" TEXT NOT NULL,
     "tmdb_id" INTEGER,
+    "media_type" "MediaType" NOT NULL,
     "title" TEXT NOT NULL,
     "poster_url" TEXT,
     "backdrop_url" TEXT,
@@ -78,7 +82,7 @@ CREATE TABLE "Movie" (
     "updated_at" TIMESTAMP(3) NOT NULL,
     "is_deleted" BOOLEAN NOT NULL DEFAULT false,
 
-    CONSTRAINT "Movie_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "movies_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -106,6 +110,7 @@ CREATE TABLE "MovieGenre" (
 -- CreateTable
 CREATE TABLE "Person" (
     "id" UUID NOT NULL,
+    "tmdb_id" INTEGER,
     "name" VARCHAR(300) NOT NULL,
     "biography" TEXT,
     "stage_name" VARCHAR(300),
@@ -368,16 +373,22 @@ CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
 CREATE UNIQUE INDEX "PasswordReset_reset_token_key" ON "PasswordReset"("reset_token");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Movie_slug_key" ON "Movie"("slug");
+CREATE UNIQUE INDEX "Country_name_key" ON "Country"("name");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Movie_tmdb_id_key" ON "Movie"("tmdb_id");
+CREATE UNIQUE INDEX "movies_slug_key" ON "movies"("slug");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "movies_tmdb_id_media_type_key" ON "movies"("tmdb_id", "media_type");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Genre_name_key" ON "Genre"("name");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "MovieGenre_movie_id_genre_id_key" ON "MovieGenre"("movie_id", "genre_id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Person_tmdb_id_key" ON "Person"("tmdb_id");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "MoviePerson_movie_id_person_id_credit_type_character_key" ON "MoviePerson"("movie_id", "person_id", "credit_type", "character");
@@ -419,16 +430,16 @@ ALTER TABLE "User" ADD CONSTRAINT "User_role_id_fkey" FOREIGN KEY ("role_id") RE
 ALTER TABLE "PasswordReset" ADD CONSTRAINT "PasswordReset_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Movie" ADD CONSTRAINT "Movie_country_id_fkey" FOREIGN KEY ("country_id") REFERENCES "Country"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "movies" ADD CONSTRAINT "movies_country_id_fkey" FOREIGN KEY ("country_id") REFERENCES "Country"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "MovieGenre" ADD CONSTRAINT "MovieGenre_movie_id_fkey" FOREIGN KEY ("movie_id") REFERENCES "Movie"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "MovieGenre" ADD CONSTRAINT "MovieGenre_movie_id_fkey" FOREIGN KEY ("movie_id") REFERENCES "movies"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "MovieGenre" ADD CONSTRAINT "MovieGenre_genre_id_fkey" FOREIGN KEY ("genre_id") REFERENCES "Genre"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "MoviePerson" ADD CONSTRAINT "MoviePerson_movie_id_fkey" FOREIGN KEY ("movie_id") REFERENCES "Movie"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "MoviePerson" ADD CONSTRAINT "MoviePerson_movie_id_fkey" FOREIGN KEY ("movie_id") REFERENCES "movies"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "MoviePerson" ADD CONSTRAINT "MoviePerson_person_id_fkey" FOREIGN KEY ("person_id") REFERENCES "Person"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -437,19 +448,19 @@ ALTER TABLE "MoviePerson" ADD CONSTRAINT "MoviePerson_person_id_fkey" FOREIGN KE
 ALTER TABLE "Rating" ADD CONSTRAINT "Rating_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Rating" ADD CONSTRAINT "Rating_movie_id_fkey" FOREIGN KEY ("movie_id") REFERENCES "Movie"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Rating" ADD CONSTRAINT "Rating_movie_id_fkey" FOREIGN KEY ("movie_id") REFERENCES "movies"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Comment" ADD CONSTRAINT "Comment_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Comment" ADD CONSTRAINT "Comment_movie_id_fkey" FOREIGN KEY ("movie_id") REFERENCES "Movie"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Comment" ADD CONSTRAINT "Comment_movie_id_fkey" FOREIGN KEY ("movie_id") REFERENCES "movies"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Comment" ADD CONSTRAINT "Comment_parent_comment_id_fkey" FOREIGN KEY ("parent_comment_id") REFERENCES "Comment"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Season" ADD CONSTRAINT "Season_movie_id_fkey" FOREIGN KEY ("movie_id") REFERENCES "Movie"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Season" ADD CONSTRAINT "Season_movie_id_fkey" FOREIGN KEY ("movie_id") REFERENCES "movies"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Episode" ADD CONSTRAINT "Episode_season_id_fkey" FOREIGN KEY ("season_id") REFERENCES "Season"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -464,7 +475,7 @@ ALTER TABLE "WatchHistory" ADD CONSTRAINT "WatchHistory_episode_id_fkey" FOREIGN
 ALTER TABLE "Favourite" ADD CONSTRAINT "Favourite_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Favourite" ADD CONSTRAINT "Favourite_movie_id_fkey" FOREIGN KEY ("movie_id") REFERENCES "Movie"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Favourite" ADD CONSTRAINT "Favourite_movie_id_fkey" FOREIGN KEY ("movie_id") REFERENCES "movies"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Playlist" ADD CONSTRAINT "Playlist_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -473,7 +484,7 @@ ALTER TABLE "Playlist" ADD CONSTRAINT "Playlist_user_id_fkey" FOREIGN KEY ("user
 ALTER TABLE "PlaylistMovie" ADD CONSTRAINT "PlaylistMovie_playlist_id_fkey" FOREIGN KEY ("playlist_id") REFERENCES "Playlist"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "PlaylistMovie" ADD CONSTRAINT "PlaylistMovie_movie_id_fkey" FOREIGN KEY ("movie_id") REFERENCES "Movie"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "PlaylistMovie" ADD CONSTRAINT "PlaylistMovie_movie_id_fkey" FOREIGN KEY ("movie_id") REFERENCES "movies"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Notification" ADD CONSTRAINT "Notification_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -485,7 +496,7 @@ ALTER TABLE "ChatbotLog" ADD CONSTRAINT "ChatbotLog_user_id_fkey" FOREIGN KEY ("
 ALTER TABLE "WatchParty" ADD CONSTRAINT "WatchParty_host_user_id_fkey" FOREIGN KEY ("host_user_id") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "WatchParty" ADD CONSTRAINT "WatchParty_movie_id_fkey" FOREIGN KEY ("movie_id") REFERENCES "Movie"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "WatchParty" ADD CONSTRAINT "WatchParty_movie_id_fkey" FOREIGN KEY ("movie_id") REFERENCES "movies"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "WatchParty" ADD CONSTRAINT "WatchParty_episode_id_fkey" FOREIGN KEY ("episode_id") REFERENCES "Episode"("id") ON DELETE SET NULL ON UPDATE CASCADE;
@@ -506,7 +517,7 @@ ALTER TABLE "UserFlagLog" ADD CONSTRAINT "UserFlagLog_admin_user_id_fkey" FOREIG
 ALTER TABLE "SectionMovieLink" ADD CONSTRAINT "SectionMovieLink_section_id_fkey" FOREIGN KEY ("section_id") REFERENCES "HomepageSection"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "SectionMovieLink" ADD CONSTRAINT "SectionMovieLink_movie_id_fkey" FOREIGN KEY ("movie_id") REFERENCES "Movie"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "SectionMovieLink" ADD CONSTRAINT "SectionMovieLink_movie_id_fkey" FOREIGN KEY ("movie_id") REFERENCES "movies"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "refresh_tokens" ADD CONSTRAINT "refresh_tokens_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;

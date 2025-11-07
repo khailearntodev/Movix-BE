@@ -21,6 +21,12 @@ enum CreditType {
   crew
 }
 
+//Enum cho loại phim
+enum MediaType {
+  MOVIE
+  TV
+}
+
 model Role {
   id          String   @id @default(uuid()) @db.Uuid
   name        String   @unique
@@ -79,15 +85,16 @@ model PasswordReset {
 
 model Country {
   id     String  @id @default(uuid()) @db.Uuid
-  name   String? @db.VarChar(150)
+  name   String  @unique @db.VarChar(150)
   movies Movie[]
 }
 
 model Movie {
   id             String    @id @default(uuid()) @db.Uuid
   original_title String
-  slug           String   @unique
-  tmdb_id        Int?      @unique
+  slug           String    @unique
+  tmdb_id        Int?
+  media_type     MediaType
   title          String
   poster_url     String?
   backdrop_url   String?
@@ -112,6 +119,9 @@ model Movie {
   playlist_movies PlaylistMovie[]
   watch_parties   WatchParty[]
   section_links   SectionMovieLink[]
+
+  @@unique([tmdb_id, media_type])
+  @@map("movies")
 }
 
 model Genre {
@@ -137,6 +147,7 @@ model MovieGenre {
 
 model Person {
   id           String        @id @default(uuid()) @db.Uuid
+  tmdb_id      Int?          @unique
   name         String        @db.VarChar(300)
   biography    String?
   stage_name   String?       @db.VarChar(300)

@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { getTmdbImageUrl } from '../lib/tmdb.helpers';
 
 const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
 const API_KEY = process.env.TMDB_API_KEY;
@@ -54,5 +55,99 @@ export const getMoviesByGenre = async (genreId: string) => {
   } catch (error) {
     console.error(`Lỗi khi gọi TMDB - Genre ${genreId}:`, error);
     throw new Error('Không thể lấy phim theo thể loại.');
+  }
+};
+
+export const getTmdbMovieDetails = async (tmdbId: string) => {
+  try {
+    const response = await tmdbApiClient.get(
+      `/movie/${tmdbId}`,
+      {
+        params: {
+          append_to_response: 'credits,images',
+          include_image_language: 'en,null',
+        },
+      }
+    );
+    
+    const data = response.data;
+
+    // Trích xuất đạo diễn
+    const director = data.credits.crew.find(
+      (person: any) => person.job === 'Director'
+    );
+
+    // Trích xuất quốc gia
+    const countryName = data.production_countries && data.production_countries.length > 0
+      ? data.production_countries[0].name
+      : null;
+
+    const formattedData = {
+      tmdb_id: data.id,
+      title: data.title,
+      original_title: data.original_title,
+      overview: data.overview,
+      release_date: data.release_date,
+      poster_url: getTmdbImageUrl(data.poster_path),
+      backdrop_url: getTmdbImageUrl(data.backdrop_path),
+      production_country: countryName, 
+      genres: data.genres, 
+      cast: data.credits.cast.slice(0, 10), 
+      director: director ? { name: director.name, id: director.id, profile_path: director.profile_path } : null,
+      runtime: data.runtime, 
+    };
+    
+    return formattedData;
+
+  } catch (error) {
+    console.error('Lỗi khi fetch TMDB details:', error);
+    throw new Error('Không tìm thấy phim trên TMDB hoặc API lỗi');
+  }
+};
+
+export const getTmdbTvShowDetails = async (tmdbId: string) => {
+  try {
+    const response = await tmdbApiClient.get(
+      `/tv/${tmdbId}`, 
+      {
+        params: {
+          append_to_response: 'credits,images',
+          include_image_language: 'en,null',
+        },
+      }
+    );
+    
+    const data = response.data;
+
+    const director = data.created_by && data.created_by.length > 0
+      ? data.created_by[0] 
+      : (data.credits.crew.find((p: any) => p.job === 'Director'));
+
+    //  Trích xuất quốc gia (TV dùng 'origin_country')
+    const countryName = data.origin_country && data.origin_country.length > 0
+      ? data.origin_country[0]
+      : (data.production_countries && data.production_countries.length > 0 ? data.production_countries[0].name : null);
+
+    const formattedData = {
+      tmdb_id: data.id,
+      title: data.name,
+      original_title: data.original_name, 
+      overview: data.overview,
+      release_date: data.first_air_date, 
+      poster_url: getTmdbImageUrl(data.poster_path),
+      backdrop_url: getTmdbImageUrl(data.backdrop_path),
+      production_country: countryName, 
+      genres: data.genres, 
+      cast: data.credits.cast.slice(0, 10),
+      director: director ? { name: director.name, id: director.id, profile_path: director.profile_path } : null,
+      runtime: data.episode_run_time && data.episode_run_time.length > 0 ? data.episode_run_time[0] : null,
+      number_of_seasons: data.number_of_seasons, 
+    };
+    
+    return formattedData;
+
+  } catch (error) {
+    console.error('Lỗi khi fetch TMDB TV details:', error);
+    throw new Error('Không tìm thấy TV show trên TMDB hoặc API lỗi');
   }
 };
