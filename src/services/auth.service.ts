@@ -7,7 +7,7 @@ import jwt from 'jsonwebtoken';
 const prisma = new PrismaClient();
 const OTP_EXPIRATION_MINUTES = 10;
 const JWT_SECRET = process.env.JWT_SECRET || 'your-fallback-secret-key';
-const JWT_EXPIRES_IN = '1h';
+const JWT_EXPIRES_IN = '6h';
 const REFRESH_TOKEN_EXPIRES_DAYS = 7;
 const RESET_TOKEN_EXPIRATION_MINUTES = 15;
 
@@ -300,4 +300,25 @@ export const logout = async (refreshToken: string) => {
     console.warn(`Không tìm thấy refresh token để xóa: ${refreshToken}`);
   }
   return true;
+};
+
+export const renewAccessToken = async (userId: string, refreshToken: string) => {
+  const tokenRecord = await prisma.refreshToken.findFirst({
+    where: {
+      userId: userId, 
+      token: refreshToken,
+    },
+  });
+
+  if (!tokenRecord) {
+    throw new Error('REFRESH_TOKEN_NOT_FOUND');
+  }
+
+  if (tokenRecord.expiresAt < new Date()) {
+    await prisma.refreshToken.delete({ where: { id: tokenRecord.id } });
+    throw new Error('REFRESH_TOKEN_EXPIRED');
+  }
+  const newTokens = await generateTokens(userId); 
+  
+  return newTokens;
 };

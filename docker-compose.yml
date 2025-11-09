@@ -25,11 +25,11 @@ services:
 
     env_file:
       - ./.env
+    
     volumes:
       - .:/app
-      - /app/node_modules
 
-    command: sh -c "npx prisma migrate dev && npm run prisma:seed && npx ts-node src/index.ts"
+    command: sh -c "npx prisma migrate dev && npm run prisma:seed && npm run build && npm start"
     depends_on:
       db:
         condition: service_healthy

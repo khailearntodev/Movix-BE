@@ -170,16 +170,12 @@ export const movieController = {
       }
 
       if (typeof type === 'string' && type !== 'Tất cả') {
-        if (type === 'phim-bo') {
-          where.seasons = {
-            some: {},
-          };
-        } else if (type === 'phim-le') {
-          where.seasons = {
-            none: {},
-          };
-        }
-      }
+        if (type === 'phim-bo') {
+          where.media_type = MediaType.TV;
+        } else if (type === 'phim-le') {
+          where.media_type = MediaType.MOVIE;
+        }
+      }
 
       if (genre && genre !== 'Tất cả') {
         const genreQuery = Array.isArray(genre) 
