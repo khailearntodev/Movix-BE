@@ -260,6 +260,7 @@ async function main() {
     release_date: new Date('2016-08-26'), country_id: cJP, media_type: MediaType.MOVIE,
     poster_url: 'https://image.tmdb.org/t/p/w500/q719jXXEzOoYaps6babgKnONONX.jpg',
     backdrop_url: 'https://image.tmdb.org/t/p/original/dIWwZW7dJJtqC6CgWzhYkypQDrm.jpg',
+    trailer_url: "https://vip.opstream11.com/20220315/2087_9b2fb836/index.m3u8",
     metadata: { tmdb_rating: 8.6, duration: '1h 46m' }
   }, [gAnime, gLangMan, gChinhKich], [
     { person_id: people['Makoto Shinkai'].id, credit_type: CreditType.crew, character: 'Director' }
@@ -287,6 +288,7 @@ async function main() {
         release_date: new Date('2008-01-20'), country_id: cUS, media_type: MediaType.TV,
         poster_url: 'https://image.tmdb.org/t/p/w500/ggFHVNu6YYI5L9pCfOacjizRGt.jpg',
         backdrop_url: 'https://image.tmdb.org/t/p/original/tsRy63Mu5cu8etL1X7ZLyf7UP1M.jpg',
+        trailer_url: "https://vip.opstream15.com/20220519/15321_4965138a/index.m3u8",
         metadata: { tmdb_rating: 9.3, total_seasons: 5 },
         // Thêm genres và credits thủ công vì không dùng helper
         movie_genres: { create: [{ genre_id: gHinhSu! }, { genre_id: gGayCan! }, { genre_id: gChinhKich! }] },

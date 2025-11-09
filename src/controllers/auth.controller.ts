@@ -29,10 +29,28 @@ export const verify = async (req: Request, res: Response) => {
 export const login = async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
-    const authResponse = await authService.login(email, password);
+    const authResponse: any = await authService.login(email, password);
+    // 1. TRÍCH XUẤT TOKEN & USER DATA
+    const { accessToken, refreshToken, ...userData } = authResponse;
+
+    res.cookie('accessToken', accessToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 15 * 60 * 1000, //15 phuts
+    });
+
+    // 3. THIẾT LẬP REFRESH TOKEN (7 ngày)
+    res.cookie('refreshToken', refreshToken, {
+        httpOnly: true, 
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax', 
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
     res.status(200).json({
       message: 'Đăng nhập thành công!',
-      data: authResponse,
+      data: userData, 
     });
   } catch (error: any) {
     if (error.message === 'EMAIL_NOT_VERIFIED') {
@@ -113,16 +131,29 @@ export const resetPassword = async (req: Request, res: Response) => {
 };
 
 export const logout = async (req: Request, res: Response) => {
-  try {
-    const { refreshToken } = req.body;
+    try {
+        const refreshToken = req.cookies.refreshToken;
 
-    if (!refreshToken) {
-      return res.status(400).json({ message: 'Refresh token là bắt buộc.' });
+        if (refreshToken) {
+          await authService.logout(refreshToken);
+        }
+        
+        res.clearCookie('accessToken', {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+        });
+        
+        res.clearCookie('refreshToken', {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax', 
+        });
+
+        res.status(200).json({ message: 'Đăng xuất thành công.' });
+    } catch (error: any) {
+        res.clearCookie('accessToken', { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax' });
+        res.clearCookie('refreshToken', { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax' });
+        res.status(200).json({ message: 'Đăng xuất thành công.' });
     }
-
-    await authService.logout(refreshToken);
-    res.status(200).json({ message: 'Đăng xuất thành công.' });
-  } catch (error: any) {
-    res.status(200).json({ message: 'Đăng xuất thành công.' });
-  }
 };
