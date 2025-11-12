@@ -7,6 +7,7 @@ import countryRouter from './routes/country.routes';
 import authRoutes from './routes/auth.routes';
 import userRouter from './routes/user.routes';
 import interactionRoutes from './routes/interaction.routes';
+import commentRoutes from './routes/comment.routes';
 import cookieParser from 'cookie-parser';
 
 dotenv.config();
@@ -26,9 +27,11 @@ app.use(express.json());
 app.use('/api/auth', authRoutes);
 app.use('/api/profile', userRouter);
 app.use('/api/interact', interactionRoutes);
+app.use('/api/comments', commentRoutes);
 app.use('/api/movies', movieRouter);
 app.use('/api/genres', genreRouter);
 app.use('/api/countries', countryRouter);
+
 
 app.get('/api', (req, res) => {
   res.send('Movix BE is running!');
