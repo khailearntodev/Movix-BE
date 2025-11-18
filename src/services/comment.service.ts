@@ -44,6 +44,7 @@ export const createComment = async (
   movieId: string,
   comment: string,
   parentCommentId?: string,
+  isSpoiler?: boolean
 ) => {
   const newComment = await prisma.comment.create({
     data: {
@@ -51,6 +52,7 @@ export const createComment = async (
       movie_id: movieId,
       comment: comment,
       parent_comment_id: parentCommentId,
+      is_spoiler: isSpoiler || false,
     },
   });
 

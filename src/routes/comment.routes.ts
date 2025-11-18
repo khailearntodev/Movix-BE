@@ -4,10 +4,9 @@ import { authenticateToken } from '../middlewares/auth.middleware';
 
 const router = express.Router();
 
-router.use(authenticateToken);
-
 // GET /api/comments?movieId=... (Lấy bình luận cho phim)
 router.get('/', commentController.getComments);
+router.use(authenticateToken);
 
 // POST /api/comments (Đăng bình luận mới hoặc trả lời)
 router.post('/', commentController.postComment);

@@ -20,7 +20,7 @@ export const commentController = {
   postComment: async (req: Request, res: Response) => {
     try {
       const userId = getUserId(req);
-      const { movieId, comment, parentCommentId } = req.body;
+      const { movieId, comment, parentCommentId, isSpoiler } = req.body;
 
       if (!movieId || !comment) {
         return res.status(400).json({ message: 'Phải có movieId và comment' });
@@ -31,6 +31,7 @@ export const commentController = {
         movieId,
         comment,
         parentCommentId,
+        isSpoiler
       );
       res.status(201).json(newComment);
     } catch (error) {
