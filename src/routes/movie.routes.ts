@@ -52,6 +52,8 @@ router.get('/trendingtmdb', movieController.getTrending);
 // GET /api/movies/tmdb/details/:tmdbId
 router.get('/tmdb/details/:tmdbId', movieController.getTmdbDetails);
 
+// GET /api/movies/:slug/watch
+router.get('/:slug/watch', movieController.getPlaybackBySlug);
 // GET /api/movies/:slug
 router.get('/:slug', movieController.getMovieBySlug);
 
