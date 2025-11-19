@@ -1,6 +1,5 @@
 import axios from 'axios';
-import { getTmdbImageUrl } from '../lib/tmdb.helpers';
-
+import { getMovieImageUrl, getPersonAvatarUrl } from '../lib/tmdb.helpers';
 const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
 const API_KEY = process.env.TMDB_API_KEY;
 
@@ -64,7 +63,7 @@ export const getTmdbMovieDetails = async (tmdbId: string) => {
       `/movie/${tmdbId}`,
       {
         params: {
-          append_to_response: 'credits,images',
+          append_to_response: 'credits,images,videos',
           include_image_language: 'en,null',
         },
       }
@@ -82,19 +81,32 @@ export const getTmdbMovieDetails = async (tmdbId: string) => {
       ? data.production_countries[0].name
       : null;
 
+    const trailer = data.videos.results.find(
+      (vid: any) => vid.site === 'YouTube' && vid.type === 'Trailer'
+    );
+    const trailerUrl = trailer ? `https://www.youtube.com/watch?v=${trailer.key}` : null;
+
     const formattedData = {
       tmdb_id: data.id,
       title: data.title,
       original_title: data.original_title,
       overview: data.overview,
       release_date: data.release_date,
-      poster_url: getTmdbImageUrl(data.poster_path),
-      backdrop_url: getTmdbImageUrl(data.backdrop_path),
+      poster_url: getMovieImageUrl(data.poster_path, "poster"),
+      backdrop_url: getMovieImageUrl(data.backdrop_path, "backdrop"),
       production_country: countryName, 
       genres: data.genres, 
-      cast: data.credits.cast.slice(0, 10), 
-      director: director ? { name: director.name, id: director.id, profile_path: director.profile_path } : null,
+      cast: data.credits.cast.slice(0, 10).map((person: any) => ({
+      ...person,
+      profile_path: getPersonAvatarUrl(person.profile_path) 
+  })), 
+  director: director ? { 
+      name: director.name, 
+      id: director.id, 
+      profile_path: getPersonAvatarUrl(director.profile_path) 
+  } : null,
       runtime: data.runtime, 
+      trailer_url: trailerUrl,
     };
     
     return formattedData;
@@ -111,7 +123,7 @@ export const getTmdbTvShowDetails = async (tmdbId: string) => {
       `/tv/${tmdbId}`, 
       {
         params: {
-          append_to_response: 'credits,images',
+          append_to_response: 'credits,images,videos',
           include_image_language: 'en,null',
         },
       }
@@ -128,20 +140,33 @@ export const getTmdbTvShowDetails = async (tmdbId: string) => {
       ? data.origin_country[0]
       : (data.production_countries && data.production_countries.length > 0 ? data.production_countries[0].name : null);
 
+    const trailer = data.videos.results.find(
+      (vid: any) => vid.site === 'YouTube' && vid.type === 'Trailer'
+    );
+    const trailerUrl = trailer ? `https://www.youtube.com/watch?v=${trailer.key}` : null;
+
     const formattedData = {
       tmdb_id: data.id,
       title: data.name,
       original_title: data.original_name, 
       overview: data.overview,
       release_date: data.first_air_date, 
-      poster_url: getTmdbImageUrl(data.poster_path),
-      backdrop_url: getTmdbImageUrl(data.backdrop_path),
+      poster_url: getMovieImageUrl(data.poster_path, "poster"),
+      backdrop_url: getMovieImageUrl(data.backdrop_path, "backdrop"),
       production_country: countryName, 
       genres: data.genres, 
-      cast: data.credits.cast.slice(0, 10),
-      director: director ? { name: director.name, id: director.id, profile_path: director.profile_path } : null,
+      cast: data.credits.cast.slice(0, 10).map((person: any) => ({
+          ...person,
+          profile_path: getPersonAvatarUrl(person.profile_path)
+      })),
+      director: director ? { 
+          name: director.name, 
+          id: director.id, 
+          profile_path: getPersonAvatarUrl(director.profile_path)
+      } : null,
       runtime: data.episode_run_time && data.episode_run_time.length > 0 ? data.episode_run_time[0] : null,
       number_of_seasons: data.number_of_seasons, 
+      trailer_url: trailerUrl,
     };
     
     return formattedData;

@@ -12,6 +12,12 @@ router.post('/', movieController.createMovie);
 // GET /tbdb/tv/:tmdbId
 router.get('/tmdb/tv/:tmdbId', movieController.getTmdbTvDetails);
 
+// DELETE /api/movies/:id
+router.delete('/:id', movieController.deleteMovie);
+
+// PUT /api/movies/:id
+router.put('/:id', movieController.updateMovie);
+
 // === ROUTE FETCH TMDB MOVIE (CHO ADMIN) ===
 // GET /tmdb/tv/:tmdbId
 router.get('/tmdb/details/:tmdbId', movieController.getTmdbDetails);

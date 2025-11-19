@@ -24,4 +24,7 @@ router.post('/reset-password', authController.resetPassword);
 // POST /api/auth/logout
 router.post('/logout', authController.logout);
 
+// POST /api/auth/refresh-token
+router.post('/refresh-token', authController.refreshToken);
+
 export default router;

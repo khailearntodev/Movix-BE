@@ -156,11 +156,18 @@ export const movieController = {
 
   filterMovies: async (req: Request, res: Response) => {
     try {
-      const { q, type, genre, country, year } = req.query;
-      const where: Prisma.MovieWhereInput = {
-        is_active: true,
-        is_deleted: false,
-      };
+      const { q, type, genre, country, year, page = '1', take = '35', status } = req.query;
+
+      const pageNum = parseInt(page as string, 10);
+      const takeNum = parseInt(take as string, 10); 
+      const skip = (pageNum - 1) * takeNum;
+
+      const where: Prisma.MovieWhereInput = {};
+
+      if (status !== 'all') {
+        where.is_active = true;
+        where.is_deleted = false;
+      }
 
       if (typeof q === 'string' && q.trim()) {
         where.title = {
@@ -191,7 +198,7 @@ export const movieController = {
                     in: validGenres, 
                     mode: 'insensitive',
                   },
-                },
+                 },
               },
             };
         }
@@ -218,21 +225,40 @@ export const movieController = {
          }   
       }
 
-      const movies = await prisma.movie.findMany({
-        where,
-        include: {
-          country: true,
-          movie_genres: {
-            include: { genre: true },
+      const [totalMovies, movies] = await prisma.$transaction([
+        prisma.movie.count({ where }),
+        prisma.movie.findMany({
+          where,
+          include: {
+            country: true,
+            movie_genres: {
+              include: { genre: true },
+            },
+            seasons: {
+              include: {
+                _count: {
+                  select: { episodes: true }
+                }
+              }
+            }
           },
-        },
-        orderBy: {
-          release_date: 'desc',
-        },
-        take: 35,
-      });
+          orderBy: {
+            release_date: 'desc',
+          },
+          take: takeNum,
+          skip: skip,
+        })
+      ]);
 
-      res.status(200).json(movies);
+      res.status(200).json({
+        data: movies,
+        pagination: {
+          page: pageNum,
+          take: takeNum,
+          total: totalMovies,
+          totalPages: Math.ceil(totalMovies / takeNum),
+        }
+      });
       
     } catch (error: any) {
       console.error("Lỗi khi lọc phim:", error);
@@ -316,6 +342,7 @@ export const movieController = {
       selectedGenres,
       selectedMovieType,
       tmdb_id, 
+      trailerUrl,
       // Step 2
       singleMovieFile, 
       seasons, 
@@ -352,6 +379,7 @@ export const movieController = {
             description: overview,
             release_date: releaseDate ? new Date(releaseDate) : null,
             poster_url: posterUrl,
+            trailer_url: trailerUrl,
             backdrop_url: backdropUrl,
             country_id: country.id,
             is_active: true, 
@@ -488,7 +516,7 @@ export const movieController = {
       console.error("Lỗi khi tạo phim:", error);
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
         const target = (error.meta?.target as string[])?.join(', '); 
-        return res.status(409).json({ // 409 Conflict
+        return res.status(409).json({
           message: `Thất bại. Đã tồn tại phim với ${target} này.`,
           error: `Unique constraint violation on ${target}`
         });
@@ -497,5 +525,153 @@ export const movieController = {
       });
     }
     }
-  }
+  },
+
+  deleteMovie: async (req: Request, res: Response) => {
+    const { id } = req.params;
+    try {
+      await prisma.movie.update({
+        where: { id: id },
+        data: { 
+          is_deleted: true,
+          is_active: false, 
+        },
+      });
+      res.status(200).json({ message: "Đã xóa phim thành công." });
+    } catch (error) {
+      console.error("Lỗi khi xóa phim:", error);
+      res.status(500).json({ error: "Lỗi máy chủ khi xóa phim" });
+    }
+  },
+
+  updateMovie: async (req: Request, res: Response) => {
+    const { id } = req.params;
+
+    console.log("--- DEBUG: UPDATE MOVIE ---");
+    console.log("Attempting to update movie with ID (from req.params.id):", id);
+
+    const data = req.body;
+
+    try {
+      const result = await prisma.$transaction(async (tx) => {
+        const updatedMovie = await tx.movie.update({
+          where: { id: id },
+          data: {
+            title: data.title,
+            original_title: data.original_title,
+            description: data.description,
+            trailer_url: data.trailer_url,
+            release_date: data.release_date ? new Date(data.release_date) : null,
+            poster_url: data.poster_url,
+            backdrop_url: data.backdrop_url,
+            media_type: data.media_type,
+            is_active: data.is_active,
+            country_id: data.country_id || (data.country ? data.country.id : null),
+          },
+        });
+
+        await tx.movieGenre.deleteMany({
+            where: { movie_id: id }
+        });
+        if (data.movie_genres && Array.isArray(data.movie_genres)) {
+            const genreLinks = await Promise.all(
+                data.movie_genres.map(async (mg: any) => {
+                    const genreName = mg.genre.name;
+                    const dbGenre = await tx.genre.upsert({
+                        where: { name: genreName },
+                        update: {},
+                        create: { name: genreName },
+                    });
+                    return {
+                        movie_id: id,
+                        genre_id: dbGenre.id,
+                    };
+                })
+            );
+            if (genreLinks.length > 0) {
+                await tx.movieGenre.createMany({
+                    data: genreLinks,
+                });
+            }
+        }
+
+        await tx.moviePerson.deleteMany({
+            where: { movie_id: id }
+        });
+        if (data.movie_people && Array.isArray(data.movie_people)) {
+            const peopleLinks = data.movie_people.map((mp: any, index: number) => {
+                if (!mp.person?.id) {
+                    throw new Error(`Thiếu person.id cho diễn viên ${mp.person?.name}`);
+                }
+                return {
+                    movie_id: id,
+                    person_id: mp.person.id, 
+                    character: mp.character,
+                    credit_type: mp.credit_type,
+                    ordering: mp.ordering || index + 1,
+                };
+            });
+            if (peopleLinks.length > 0) {
+                await tx.moviePerson.createMany({
+                    data: peopleLinks,
+                });
+            }
+        }
+        const oldSeasons = await tx.season.findMany({
+            where: { movie_id: id },
+            select: { id: true }
+        });
+        if (oldSeasons.length > 0) {
+            await tx.episode.deleteMany({
+                where: { season_id: { in: oldSeasons.map(s => s.id) } }
+            });
+            await tx.season.deleteMany({
+                where: { movie_id: id }
+            });
+        }
+
+        if (data.seasons && Array.isArray(data.seasons)) {
+            for (const [seasonIndex, season] of data.seasons.entries()) {
+                const newSeason = await tx.season.create({
+                    data: {
+                        movie_id: id,
+                        season_number: season.season_number || seasonIndex + 1,
+                        title: season.title || season.name || `Mùa ${seasonIndex + 1}`, 
+                    },
+                });
+                
+                if (season.episodes && Array.isArray(season.episodes)) {
+                    const validEpisodes = season.episodes
+                        .map((ep: any, epIndex: number) => ({
+                            season_id: newSeason.id, 
+                            episode_number: ep.episode_number || epIndex + 1,
+                            title: ep.title,
+                            video_url: ep.video_url,
+                            runtime: ep.runtime ? parseInt(ep.runtime) : 0, 
+                        }));
+
+                    if (validEpisodes.length > 0) {
+                        await tx.episode.createMany({
+                            data: validEpisodes,
+                        });
+                    }
+                }
+            }
+        }
+        
+        return updatedMovie;
+      });
+
+      res.status(200).json({ 
+        message: "Cập nhật phim thành công!", 
+        data: result 
+      });
+    
+    } catch (error: any) {
+      console.error("Lỗi khi cập nhật phim:", error);
+      res.status(500).json({ 
+        message: error.message || 'Lỗi máy chủ khi cập nhật phim' 
+      });
+    }
+  },
 }
