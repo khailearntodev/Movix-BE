@@ -1,6 +1,9 @@
 import { Request, Response } from 'express';
 import * as authService from '../services/auth.service';
 
+const REFRESH_TOKEN_EXPIRES_DAYS = 7;
+const RESET_TOKEN_EXPIRATION_MINUTES = 15;
+
 export const register = async (req: Request, res: Response) => {
   try {
     const { email, username, password } = req.body;
@@ -156,4 +159,37 @@ export const logout = async (req: Request, res: Response) => {
         res.clearCookie('refreshToken', { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax' });
         res.status(200).json({ message: 'Đăng xuất thành công.' });
     }
+};
+
+export const refreshToken = async (req: Request, res: Response) => {
+  try {
+    const refreshToken = req.cookies.refreshToken;
+
+    if (!refreshToken) {
+      return res.status(401).json({ message: 'Không tìm thấy Refresh Token.' });
+    }
+
+    const newTokens = await authService.renewTokenOnly(refreshToken); 
+
+    res.cookie('accessToken', newTokens.accessToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: RESET_TOKEN_EXPIRATION_MINUTES * 60 * 1000, 
+    });
+
+    res.cookie('refreshToken', newTokens.refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: REFRESH_TOKEN_EXPIRES_DAYS * 24 * 60 * 60 * 1000,
+    });
+
+    res.status(200).json({ message: 'Làm mới token thành công.' });
+
+  } catch (error: any) {
+    res.clearCookie('accessToken');
+    res.clearCookie('refreshToken');
+    res.status(403).json({ message: 'Refresh token không hợp lệ hoặc đã hết hạn.' });
+  }
 };

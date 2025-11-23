@@ -12,6 +12,12 @@ router.post('/', movieController.createMovie);
 // GET /tbdb/tv/:tmdbId
 router.get('/tmdb/tv/:tmdbId', movieController.getTmdbTvDetails);
 
+// DELETE /api/movies/:id
+router.delete('/:id', movieController.deleteMovie);
+
+// PUT /api/movies/:id
+router.put('/:id', movieController.updateMovie);
+
 // === ROUTE FETCH TMDB MOVIE (CHO ADMIN) ===
 // GET /tmdb/tv/:tmdbId
 router.get('/tmdb/details/:tmdbId', movieController.getTmdbDetails);
@@ -46,6 +52,8 @@ router.get('/trendingtmdb', movieController.getTrending);
 // GET /api/movies/tmdb/details/:tmdbId
 router.get('/tmdb/details/:tmdbId', movieController.getTmdbDetails);
 
+// GET /api/movies/:slug/watch
+router.get('/:slug/watch', movieController.getPlaybackBySlug);
 // GET /api/movies/:slug
 router.get('/:slug', movieController.getMovieBySlug);
 

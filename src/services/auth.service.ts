@@ -322,3 +322,21 @@ export const renewAccessToken = async (userId: string, refreshToken: string) => 
   
   return newTokens;
 };
+
+export const renewTokenOnly = async (refreshToken: string) => {
+  const tokenRecord = await prisma.refreshToken.findUnique({
+    where: { token: refreshToken },
+  });
+
+  if (!tokenRecord) {
+    throw new Error('REFRESH_TOKEN_NOT_FOUND');
+  }
+
+  if (tokenRecord.expiresAt < new Date()) {
+    await prisma.refreshToken.delete({ where: { id: tokenRecord.id } });
+    throw new Error('REFRESH_TOKEN_EXPIRED');
+  }
+  const newTokens = await generateTokens(tokenRecord.userId);
+  
+  return newTokens;
+};
