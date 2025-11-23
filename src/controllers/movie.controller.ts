@@ -498,8 +498,17 @@ export const movieController = {
         if (people && Array.isArray(people) && people.length > 0) {
           const peopleLinks = await Promise.all(
             people.map(async (person: any, index: number) => {
-
               const personTmdbId = person.id ? parseInt(person.id) : null;
+              const personDataUpdate = {
+                name: person.name,
+                avatar_url: person.avatarUrl || person.profile_path,
+                role_type: person.role, 
+              
+                biography: person.biography || null,
+                birthday: person.birthday ? new Date(person.birthday) : null,
+
+                gender: person.gender,  
+              };
 
               let dbPerson;
               if (personTmdbId) {
@@ -507,26 +516,19 @@ export const movieController = {
                   where: { tmdb_id: personTmdbId },
                   create: {
                     tmdb_id: personTmdbId,
-                    name: person.name,
-                    avatar_url: person.avatarUrl,
-                    role_type: person.role,
+                    ...personDataUpdate
                   },
-                  update: {
-                    name: person.name,
-                    avatar_url: person.avatarUrl,
-                    role_type: person.role,
-                  },
+                  update: personDataUpdate,
                 });
               } else {
                 dbPerson = await tx.person.create({
                   data: {
-                    name: person.name,
-                    avatar_url: person.avatarUrl,
-                    role_type: person.role,
+                    ...personDataUpdate,
                     tmdb_id: null
                   }
                 });
               }
+
               return {
                 movie_id: newMovie.id,
                 person_id: dbPerson.id,
@@ -536,9 +538,8 @@ export const movieController = {
               };
             })
           );
-          await tx.moviePerson.createMany({
-            data: peopleLinks,
-          });
+          
+          await tx.moviePerson.createMany({ data: peopleLinks });
         }
 
         // --- 5. Xử lý Tập phim (Episodes/Seasons) ---
@@ -686,24 +687,65 @@ export const movieController = {
             where: { movie_id: id }
         });
         if (data.movie_people && Array.isArray(data.movie_people)) {
-            const peopleLinks = data.movie_people.map((mp: any, index: number) => {
-                if (!mp.person?.id) {
-                    throw new Error(`Thiếu person.id cho diễn viên ${mp.person?.name}`);
+            const peopleLinks = await Promise.all(
+              data.movie_people.map(async (mp: any, index: number) => {
+                  if (!mp.person?.id) {
+                      throw new Error(`Thiếu person.id cho diễn viên ${mp.person?.name}`);
+                  }
+
+                  let finalPersonId = mp.person.id;
+                  
+                  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(finalPersonId);
+
+                  if (!isUuid) {
+                    const tmdbId = parseInt(finalPersonId); 
+                    
+                    const personDataUpdate = {
+                        name: mp.person.name,
+                        avatar_url: mp.person.avatar_url || mp.person.profile_path, 
+                        role_type: mp.person.role_type || (mp.credit_type === 'crew' ? 'Director' : 'Actor'),
+                        biography: mp.person.biography || null,
+                        birthday: mp.person.birthday ? new Date(mp.person.birthday) : null,
+                        gender: mp.person.gender || 0,
+                    }
+
+                    if (!isNaN(tmdbId)) {
+                        const dbPerson = await tx.person.upsert({
+                            where: { tmdb_id: tmdbId },
+                            create: {
+                                tmdb_id: tmdbId,
+                                ...personDataUpdate 
+                            },
+                            update: personDataUpdate 
+                        });
+                        finalPersonId = dbPerson.id;
+                    } else {
+                        const dbPerson = await tx.person.create({
+                            data: {
+                                ...personDataUpdate,
+                                tmdb_id: null 
+                            }
+                        });
+                        finalPersonId = dbPerson.id;
+                    }
                 }
+
                 return {
                     movie_id: id,
-                    person_id: mp.person.id, 
+                    person_id: finalPersonId,
                     character: mp.character,
                     credit_type: mp.credit_type,
                     ordering: mp.ordering || index + 1,
                 };
+            })
+        );
+        
+        if (peopleLinks.length > 0) {
+            await tx.moviePerson.createMany({
+                data: peopleLinks,
             });
-            if (peopleLinks.length > 0) {
-                await tx.moviePerson.createMany({
-                    data: peopleLinks,
-                });
-            }
         }
+      }
         const oldSeasons = await tx.season.findMany({
             where: { movie_id: id },
             select: { id: true }
@@ -745,7 +787,6 @@ export const movieController = {
                 }
             }
         }
-        
         return updatedMovie;
       });
 

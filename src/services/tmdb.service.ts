@@ -12,6 +12,16 @@ const tmdbApiClient = axios.create({
   },
 });
 
+const getPersonDetails = async (personId: number) => {
+  try {
+    const response = await tmdbApiClient.get(`/person/${personId}`);
+    return response.data;
+  } catch (error) {
+    console.warn(`Không lấy được info person ${personId}`, error);
+    return null;
+  }
+};
+
 /**
  * Lấy danh sách phim thịnh hành trong tuần
  */
@@ -71,10 +81,33 @@ export const getTmdbMovieDetails = async (tmdbId: string) => {
     
     const data = response.data;
 
-    // Trích xuất đạo diễn
-    const director = data.credits.crew.find(
-      (person: any) => person.job === 'Director'
-    );
+    const directorInfo = data.credits.crew.find((p: any) => p.job === 'Director');
+    let directorFull = null;
+    if (directorInfo) {
+        const details = await getPersonDetails(directorInfo.id);
+        directorFull = {
+            id: directorInfo.id,
+            name: directorInfo.name,
+            profile_path: getPersonAvatarUrl(directorInfo.profile_path),
+            biography: details?.biography || '',
+            birthday: details?.birthday || null,
+            gender: details?.gender || 0, // TMDB: 1=Female, 2=Male
+        };
+    }
+
+    // 2. Xử lý Diễn viên 
+    const castPromises = data.credits.cast.slice(0, 10).map(async (person: any) => {
+        const details = await getPersonDetails(person.id);
+        return {
+            ...person, 
+            profile_path: getPersonAvatarUrl(person.profile_path),
+            biography: details?.biography || '',
+            birthday: details?.birthday || null,
+            gender: details?.gender || 0,
+        };
+    });
+    
+    const castFull = await Promise.all(castPromises);
 
     // Trích xuất quốc gia
     const countryName = data.production_countries && data.production_countries.length > 0
@@ -96,15 +129,8 @@ export const getTmdbMovieDetails = async (tmdbId: string) => {
       backdrop_url: getMovieImageUrl(data.backdrop_path, "backdrop"),
       production_country: countryName, 
       genres: data.genres, 
-      cast: data.credits.cast.slice(0, 10).map((person: any) => ({
-      ...person,
-      profile_path: getPersonAvatarUrl(person.profile_path) 
-  })), 
-  director: director ? { 
-      name: director.name, 
-      id: director.id, 
-      profile_path: getPersonAvatarUrl(director.profile_path) 
-  } : null,
+      cast: castFull,
+      director: directorFull,
       runtime: data.runtime, 
       trailer_url: trailerUrl,
     };
@@ -131,9 +157,37 @@ export const getTmdbTvShowDetails = async (tmdbId: string) => {
     
     const data = response.data;
 
-    const director = data.created_by && data.created_by.length > 0
-      ? data.created_by[0] 
-      : (data.credits.crew.find((p: any) => p.job === 'Director'));
+    // 1. Xử lý Đạo diễn
+    const directorInfo =
+      data.created_by && data.created_by.length > 0
+        ? data.created_by[0]
+        : data.credits.crew.find((p: any) => p.job === 'Director');
+
+    let directorFull = null;
+    if (directorInfo) {
+      const details = await getPersonDetails(directorInfo.id);
+      directorFull = {
+        id: directorInfo.id,
+        name: directorInfo.name,
+        profile_path: getPersonAvatarUrl(directorInfo.profile_path),
+        biography: details?.biography || '',
+        birthday: details?.birthday || null,
+        gender: details?.gender || 0,
+      };
+    }
+
+    // 2. Xử lý Diễn viên
+    const castPromises = data.credits.cast.slice(0, 10).map(async (person: any) => {
+      const details = await getPersonDetails(person.id);
+      return {
+        ...person,
+        profile_path: getPersonAvatarUrl(person.profile_path),
+        biography: details?.biography || '',
+        birthday: details?.birthday || null,
+        gender: details?.gender || 0,
+      };
+    });
+    const castFull = await Promise.all(castPromises);
 
     //  Trích xuất quốc gia (TV dùng 'origin_country')
     const countryName = data.origin_country && data.origin_country.length > 0
@@ -155,15 +209,8 @@ export const getTmdbTvShowDetails = async (tmdbId: string) => {
       backdrop_url: getMovieImageUrl(data.backdrop_path, "backdrop"),
       production_country: countryName, 
       genres: data.genres, 
-      cast: data.credits.cast.slice(0, 10).map((person: any) => ({
-          ...person,
-          profile_path: getPersonAvatarUrl(person.profile_path)
-      })),
-      director: director ? { 
-          name: director.name, 
-          id: director.id, 
-          profile_path: getPersonAvatarUrl(director.profile_path)
-      } : null,
+      cast: castFull,
+      director: directorFull,
       runtime: data.episode_run_time && data.episode_run_time.length > 0 ? data.episode_run_time[0] : null,
       number_of_seasons: data.number_of_seasons, 
       trailer_url: trailerUrl,
