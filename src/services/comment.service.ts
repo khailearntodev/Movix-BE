@@ -6,6 +6,7 @@ export const getCommentsByMovie = async (movieId: string) => {
       movie_id: movieId,
       parent_comment_id: null, 
       is_deleted: false,
+      is_hidden: false,
     },
     include: {
       user: {
@@ -18,6 +19,7 @@ export const getCommentsByMovie = async (movieId: string) => {
       replies: {
         where: {
           is_deleted: false,
+          is_hidden: false
         },
         include: {
           user: {
@@ -44,7 +46,9 @@ export const createComment = async (
   movieId: string,
   comment: string,
   parentCommentId?: string,
-  isSpoiler?: boolean
+  isSpoiler?: boolean,
+  toxicityScore?: number,
+  isHidden?: boolean
 ) => {
   const newComment = await prisma.comment.create({
     data: {
@@ -53,6 +57,8 @@ export const createComment = async (
       comment: comment,
       parent_comment_id: parentCommentId,
       is_spoiler: isSpoiler || false,
+      toxicity_score: toxicityScore || 0, 
+      is_hidden: isHidden || false,
     },
   });
 
@@ -77,6 +83,8 @@ export const updateComment = async (
   userId: string,
   commentId: string,
   newComment: string,
+  toxicityScore?: number,
+  isHidden?: boolean
 ) => {
   return prisma.comment.updateMany({
     where: {
