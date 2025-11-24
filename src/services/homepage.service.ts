@@ -3,7 +3,7 @@ import { prisma } from '../lib/prisma';
 export const homepageService = {
   getAllSections: async () => {
     return prisma.homepageSection.findMany({
-      where: { is_deleted: false },
+      where: { is_deleted: false, is_visible: true }, // Chỉ lấy section đang hiện
       orderBy: { display_order: 'asc' },
       include: {
         movie_links: {
@@ -13,8 +13,20 @@ export const homepageService = {
               select: {
                 id: true,
                 title: true,
+                original_title: true,
+                slug: true,           
                 poster_url: true,
-                movie_genres: { include: { genre: true } }
+                backdrop_url: true,
+                description: true,
+                release_date: true,
+                media_type: true,
+                metadata: true,   
+                movie_genres: { 
+                    include: { genre: true } 
+                },
+                seasons: {
+                    select: { id: true } 
+                }
               }
             }
           }
