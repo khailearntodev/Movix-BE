@@ -95,3 +95,19 @@ export const toggleUserFlag = async (userId: string) => {
     data: { is_flagged: !user.is_flagged }
   });
 };
+
+export const updateUserRole = async (userId: string, roleName: string) => {
+  const role = await prisma.role.findUnique({
+    where: { name: roleName },
+  });
+
+  if (!role) {
+    throw new Error('ROLE_NOT_FOUND');
+  }
+
+  return prisma.user.update({
+    where: { id: userId },
+    data: { role_id: role.id },
+    include: { role: true } 
+  });
+};

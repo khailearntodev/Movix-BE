@@ -507,7 +507,7 @@ export const movieController = {
                 biography: person.biography || null,
                 birthday: person.birthday ? new Date(person.birthday) : null,
 
-                gender: person.gender,  
+                gender: person.gender ? parseInt(person.gender) : 0,
               };
 
               let dbPerson;
@@ -706,7 +706,7 @@ export const movieController = {
                         role_type: mp.person.role_type || (mp.credit_type === 'crew' ? 'Director' : 'Actor'),
                         biography: mp.person.biography || null,
                         birthday: mp.person.birthday ? new Date(mp.person.birthday) : null,
-                        gender: mp.person.gender || 0,
+                        gender: mp.person.gender ? parseInt(mp.person.gender) : 0,
                     }
 
                     if (!isNaN(tmdbId)) {

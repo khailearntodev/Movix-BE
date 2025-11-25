@@ -12,6 +12,7 @@ import homepageRouter from './routes/homepage.routes';
 import commentRoutes from './routes/comment.routes';
 import cookieParser from 'cookie-parser';
 import personRoutes from './routes/people.routes';
+import bannerRoutes from './routes/banner.routes';
 dotenv.config();
 
 const app = express();
@@ -36,6 +37,7 @@ app.use('/api/countries', countryRouter);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/homepage', homepageRouter);
 app.use('/api/people',personRoutes);
+app.use('/api/banners', bannerRoutes);
 
 
 app.get('/api', (req, res) => {

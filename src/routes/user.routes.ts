@@ -15,5 +15,6 @@ router.get('/admin/users', adminUserController.getUsers);
 router.get('/admin/users/:id', adminUserController.getUserDetail);
 router.put('/admin/users/:id/status', adminUserController.updateUserStatus);
 router.put('/admin/users/:id/flag', adminUserController.toggleFlag);
+router.put('/admin/users/:id/role', adminUserController.updateRole);
 
 export default router;

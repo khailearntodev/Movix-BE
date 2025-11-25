@@ -133,46 +133,49 @@ async function main() {
   console.log('Dang tao Dien vien va Dao dien...');
   const peopleData = [
     // Đạo diễn
-    { name: 'Christopher Nolan', role: 'director' },
-    { name: 'Bong Joon-ho', role: 'director' },
-    { name: 'Makoto Shinkai', role: 'director' },
-    { name: 'Hayao Miyazaki', role: 'director' },
-    { name: 'Victor Vũ', role: 'director' },
-    // Diễn viên Hollywood
-    { name: 'Leonardo DiCaprio', role: 'actor' },
-    { name: 'Robert Downey Jr.', role: 'actor' },
-    { name: 'Bryan Cranston', role: 'actor' },
-    { name: 'Christian Bale', role: 'actor' },
-    { name: 'Keanu Reeves', role: 'actor' },
-    { name: 'Emma Stone', role: 'actor' },
-    { name: 'Ryan Gosling', role: 'actor' },
-    { name: 'Matthew McConaughey', role: 'actor' },
-    { name: 'Anne Hathaway', role: 'actor' },
-    { name: 'Jessica Chastain', role: 'actor' },
-    { name: 'Tom Hardy', role: 'actor' },
-    { name: 'Cillian Murphy', role: 'actor' },
-    { name: 'Scarlett Johansson', role: 'actor' },
-    { name: 'Chris Evans', role: 'actor' },
-    { name: 'Chris Hemsworth', role: 'actor' },
-    { name: 'Mark Ruffalo', role: 'actor' },
-    // Diễn viên Châu Á
-    { name: 'Lee Jung-jae', role: 'actor' },
-    { name: 'Gong Yoo', role: 'actor' },
-    { name: 'Ma Dong-seok', role: 'actor' },
-    { name: 'Song Kang-ho', role: 'actor' },
-    { name: 'Lee Sun-kyun', role: 'actor' },
-    { name: 'Cho Yeo-jeong', role: 'actor' },
-    // Diễn viên Việt Nam
-    { name: 'Trấn Thành', role: 'actor' },
-    { name: 'Phương Anh Đào', role: 'actor' },
-    { name: 'Tuấn Trần', role: 'actor' },
-    { name: 'Trúc Anh', role: 'actor' },
-    { name: 'Trần Nghĩa', role: 'actor' }
+    { name: 'Christopher Nolan', role: 'director', gender: 2 },
+    { name: 'Bong Joon-ho', role: 'director', gender: 2 },
+    { name: 'Makoto Shinkai', role: 'director', gender: 2 },
+    { name: 'Hayao Miyazaki', role: 'director', gender: 2 },
+    { name: 'Victor Vũ', role: 'director', gender: 2 },
+    
+    // --- Diễn viên Hollywood ---
+    { name: 'Leonardo DiCaprio', role: 'actor', gender: 2 },
+    { name: 'Robert Downey Jr.', role: 'actor', gender: 2 },
+    { name: 'Bryan Cranston', role: 'actor', gender: 2 },
+    { name: 'Christian Bale', role: 'actor', gender: 2 },
+    { name: 'Keanu Reeves', role: 'actor', gender: 2 },
+    { name: 'Emma Stone', role: 'actor', gender: 1 },     
+    { name: 'Ryan Gosling', role: 'actor', gender: 2 },
+    { name: 'Matthew McConaughey', role: 'actor', gender: 2 },
+    { name: 'Anne Hathaway', role: 'actor', gender: 1 },   
+    { name: 'Jessica Chastain', role: 'actor', gender: 1 },
+    { name: 'Tom Hardy', role: 'actor', gender: 2 },
+    { name: 'Cillian Murphy', role: 'actor', gender: 2 },
+    { name: 'Scarlett Johansson', role: 'actor', gender: 1 }, 
+    { name: 'Chris Evans', role: 'actor', gender: 2 },
+    { name: 'Chris Hemsworth', role: 'actor', gender: 2 },
+    { name: 'Mark Ruffalo', role: 'actor', gender: 2 },
+    
+    // --- Diễn viên Châu Á ---
+    { name: 'Lee Jung-jae', role: 'actor', gender: 2 },
+    { name: 'Gong Yoo', role: 'actor', gender: 2 },
+    { name: 'Ma Dong-seok', role: 'actor', gender: 2 },
+    { name: 'Song Kang-ho', role: 'actor', gender: 2 },
+    { name: 'Lee Sun-kyun', role: 'actor', gender: 2 },
+    { name: 'Cho Yeo-jeong', role: 'actor', gender: 1 },    
+    
+    // --- Diễn viên Việt Nam ---
+    { name: 'Trấn Thành', role: 'actor', gender: 2 },
+    { name: 'Phương Anh Đào', role: 'actor', gender: 1 },
+    { name: 'Tuấn Trần', role: 'actor', gender: 2 },
+    { name: 'Trúc Anh', role: 'actor', gender: 1 },         
+    { name: 'Trần Nghĩa', role: 'actor', gender: 2 }
   ];
 
   const people: Record<string, any> = {};
   for (const p of peopleData) {
-    people[p.name] = await prisma.person.create({ data: { name: p.name, role_type: p.role } });
+    people[p.name] = await prisma.person.create({ data: { name: p.name, role_type: p.role, gender: p.gender } });
   }
 
   // ================= PHIM LẺ (MOVIES) =================
