@@ -3,10 +3,10 @@ import { homepageController } from '../controllers/homepage.controller';
 import { authenticateToken } from '../middlewares/auth.middleware';
 
 const router = Router();
-
+router.get('/', homepageController.getAll);
 router.use(authenticateToken);
 
-router.get('/', homepageController.getAll);
+
 router.post('/', homepageController.create);
 router.put('/reorder', homepageController.reorderSections); 
 router.put('/movies/reorder', homepageController.reorderMovies); 
