@@ -111,3 +111,8 @@ export const deleteComment = async (userId: string, commentId: string) => {
     },
   });
 };
+export const getCommentById = async (commentId: string) => {
+  return prisma.comment.findUnique({
+    where: { id: commentId },
+  });
+};

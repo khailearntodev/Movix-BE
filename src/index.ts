@@ -1,4 +1,5 @@
 import express from 'express';
+import { createServer } from 'http';
 import dotenv from 'dotenv';
 import cors from 'cors';
 import movieRouter from './routes/movie.routes';
@@ -15,10 +16,13 @@ import personRoutes from './routes/people.routes';
 import bannerRoutes from './routes/banner.routes';
 import aiRoutes from './routes/ai.routes';
 import historyRoutes from './routes/history.routes';
-import bannerRoutes from './routes/banner.routes';
 dotenv.config();
-
+import { WebSocketService } from './services/websocket.service';
+import { NotificationService } from './services/notification.service';
+import { setNotificationService } from './utils/notify/notification.helper';
+import notificationRoutes from './routes/notification.routes';
 const app = express();
+const server = createServer(app);
 const port = process.env.PORT || 5000;
 
 app.use(cors({
@@ -27,6 +31,12 @@ app.use(cors({
   allowedHeaders: ["Content-Type", "Authorization"], 
   credentials: true,
 }));
+const webSocketService = new WebSocketService(server);
+
+const notificationService = new NotificationService(webSocketService);
+setNotificationService(notificationService);
+app.locals.webSocketService = webSocketService;
+app.locals.notificationService = notificationService;
 
 app.use(cookieParser());
 app.use(express.json()); 
@@ -43,11 +53,23 @@ app.use('/api/people',personRoutes);
 app.use('/api/banners', bannerRoutes);
 app.use('/api/history', historyRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/notifications', notificationRoutes);
+
+
 
 app.get('/api', (req, res) => {
   res.send('Movix BE is running!');
 });
-
+app.get('/api/websocket/status', (req, res) => {
+  res.json({
+    success: true,
+    data: {
+      onlineUsers: webSocketService.getOnlineUserCount(),
+      isConnected: true
+    }
+  });
+});
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);
 });
+export { webSocketService, notificationService };
