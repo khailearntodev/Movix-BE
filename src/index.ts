@@ -15,6 +15,7 @@ import personRoutes from './routes/people.routes';
 import bannerRoutes from './routes/banner.routes';
 import aiRoutes from './routes/ai.routes';
 import historyRoutes from './routes/history.routes';
+import bannerRoutes from './routes/banner.routes';
 dotenv.config();
 
 const app = express();
