@@ -13,6 +13,12 @@ export const register = async (req: Request, res: Response) => {
       data: user,
     });
   } catch (error: any) {
+    if (error.message === 'Email hoặc username đã được sử dụng.') {
+        return res.status(409).json({ 
+            code: 'USER_ALREADY_EXISTS',
+            message: error.message 
+        });
+    }
     res.status(400).json({ message: error.message });
   }
 };
@@ -53,11 +59,14 @@ export const login = async (req: Request, res: Response) => {
 
     res.status(200).json({
       message: 'Đăng nhập thành công!',
-      data: userData, 
+      data: authResponse, 
     });
   } catch (error: any) {
     if (error.message === 'EMAIL_NOT_VERIFIED') {
-      return res.status(403).json({ message: 'Email chưa được xác thực.' });
+      return res.status(403).json({ 
+        code: 'USER_NOT_VERIFIED', 
+        message: 'Email chưa được xác thực. Vui lòng xác minh tài khoản.' 
+      });
     }
     if (error.message === 'INVALID_CREDENTIALS') {
       return res.status(401).json({ message: 'Email hoặc mật khẩu không đúng.' });

@@ -152,7 +152,7 @@ model Person {
   biography    String?
   stage_name   String?       @db.VarChar(300)
   birthday     DateTime?     @db.Date
-  gender       Boolean?
+  gender       Int?          //1 = Nữ, 2 = Nam, 0 = Không rõ, 3 = Non-binary
   role_type    String        @db.VarChar(50) // "actor", "director", "writer"...
   avatar_url   String?
   created_at   DateTime      @default(now())
@@ -167,7 +167,7 @@ model MoviePerson {
   person_id   String     @db.Uuid
   credit_type CreditType // Sử dụng Enum từ CHECK
   character   String?    @db.VarChar(300)
-  ordering    Int        @default(0) // SQL có DEFAULT 0, nên không cần "?"
+  ordering    Int        @default(0) 
   created_at  DateTime   @default(now())
   updated_at  DateTime   @updatedAt
   is_deleted  Boolean    @default(false)
