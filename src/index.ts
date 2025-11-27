@@ -13,6 +13,7 @@ import commentRoutes from './routes/comment.routes';
 import cookieParser from 'cookie-parser';
 import personRoutes from './routes/people.routes';
 import historyRoutes from './routes/history.routes';
+import bannerRoutes from './routes/banner.routes';
 dotenv.config();
 
 const app = express();
@@ -38,6 +39,7 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/homepage', homepageRouter);
 app.use('/api/people',personRoutes);
 app.use('/api/history', historyRoutes);
+app.use('/api/banners', bannerRoutes);
 
 app.get('/api', (req, res) => {
   res.send('Movix BE is running!');
