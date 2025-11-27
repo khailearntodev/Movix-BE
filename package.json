@@ -12,6 +12,7 @@
         "prisma:seed": "ts-node prisma/seed.ts"
     },
     "dependencies": {
+        "@google/generative-ai": "^0.24.1",
         "@prisma/client": "^6.18.0",
         "@vitalets/google-translate-api": "^9.2.1",
         "axios": "^1.7.0",
