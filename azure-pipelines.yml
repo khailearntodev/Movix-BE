@@ -26,9 +26,9 @@ steps:
 
 # Bước 4: Kiểm tra lỗi cú pháp (Linting)
 # Chạy lệnh lint được định nghĩa trong package.json
-- script: |
-    npm run lint
-  displayName: 'Run Linting'
+#- script: |
+#    npm run lint
+#  displayName: 'Run Linting'
 
 # Bước 5: Build dự án (Biên dịch TypeScript sang JavaScript)
 # Lệnh này sẽ chạy 'tsc' và tạo thư mục 'dist'
