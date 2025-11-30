@@ -2,9 +2,8 @@
 trigger:
 - main
 
-# Sử dụng máy ảo Ubuntu mới nhất
 pool:
-  vmImage: ubuntu-latest
+  name: Default
 
 steps:
 # Bước 1: Cài đặt Node.js phiên bản 20 (khớp với Dockerfile của bạn)
