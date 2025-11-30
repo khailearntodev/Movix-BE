@@ -1,0 +1,57 @@
+# Kích hoạt pipeline khi có code đẩy lên nhánh main
+trigger:
+- main
+
+pool:
+  name: Default
+
+steps:
+# Bước 1: Cài đặt Node.js phiên bản 20 (khớp với Dockerfile của bạn)
+- task: NodeTool@0
+  inputs:
+    versionSpec: '20.x'
+  displayName: 'Install Node.js'
+
+# Bước 2: Cài đặt các thư viện (dependencies)
+# Sử dụng 'npm ci' giúp cài đặt nhanh và chính xác hơn trên môi trường CI
+- script: |
+    npm ci
+  displayName: 'Install Dependencies'
+
+# Bước 3: Tạo Prisma Client
+# BẮT BUỘC: Nếu thiếu bước này, code TypeScript sẽ báo lỗi không tìm thấy Prisma
+- script: |
+    npx prisma generate
+  displayName: 'Generate Prisma Client'
+
+# Bước 4: Kiểm tra lỗi cú pháp (Linting)
+# Chạy lệnh lint được định nghĩa trong package.json
+#- script: |
+#    npm run lint
+#  displayName: 'Run Linting'
+
+# Bước 5: Build dự án (Biên dịch TypeScript sang JavaScript)
+# Lệnh này sẽ chạy 'tsc' và tạo thư mục 'dist'
+- script: |
+    npm run build
+  displayName: 'Build Project'
+
+# (Tùy chọn) Bước 6: Copy file build để có thể tải về (Artifacts)
+- task: CopyFiles@2
+  inputs:
+    SourceFolder: '$(System.DefaultWorkingDirectory)'
+    Contents: |
+      dist/**
+      package.json
+      package-lock.json
+      prisma/**
+      .env.example
+    TargetFolder: '$(Build.ArtifactStagingDirectory)'
+  displayName: 'Copy Files to Artifact Staging'
+
+- task: PublishBuildArtifacts@1
+  inputs:
+    PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+    ArtifactName: 'drop'
+    publishLocation: 'Container'
+  displayName: 'Publish Artifact'
