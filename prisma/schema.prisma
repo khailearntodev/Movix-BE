@@ -71,6 +71,7 @@ model User {
   watch_party_members  WatchPartyMember[]
   user_flag_logs       UserFlagLog[]      @relation("FlaggedUser")
   admin_flag_logs      UserFlagLog[]      @relation("AdminUser")
+  push_subscriptions   PushSubscription[]
 }
 
 model PasswordReset {
@@ -417,4 +418,15 @@ model RefreshToken {
   createdAt DateTime @default(now())
 
   @@map("refresh_tokens")
+}
+
+model PushSubscription {
+  id         String   @id @default(uuid()) @db.Uuid
+  user_id    String   @db.Uuid
+  endpoint   String   @unique
+  p256dh     String
+  auth       String
+  created_at DateTime @default(now())
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
 }

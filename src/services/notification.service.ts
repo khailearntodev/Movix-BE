@@ -1,9 +1,11 @@
 import { PrismaClient } from '@prisma/client';
 import { CreateNotificationDto, NotificationResponse, NotificationType } from '../types/notification';
+import { PushNotificationService } from './push-notification.service';
 
 export class NotificationService {
   private prisma: PrismaClient;
-  private webSocketService: any; 
+  private webSocketService: any;
+  private pushNotificationService = new PushNotificationService();
 
   constructor(webSocketService?: any) {
     this.prisma = new PrismaClient();
@@ -15,7 +17,7 @@ export class NotificationService {
   }
 
   async createNotification(dto: CreateNotificationDto): Promise<NotificationResponse> {
-    const notification = await this.prisma. notification.create({
+    const notification = await this.prisma.notification.create({
       data: {
         user_id: dto.userId,
         type: dto.type,
@@ -30,6 +32,14 @@ export class NotificationService {
       await this.webSocketService.sendNotificationToUser(dto.userId, notification);
     }
 
+    if (dto.userId) {
+      await this.pushNotificationService.sendNotification(dto.userId, {
+        title: dto.title,
+        message: dto.message,
+        url: dto.actionUrl
+      });
+    }
+
     return this.formatResponse(notification);
   }
 
@@ -40,18 +50,18 @@ export class NotificationService {
       title: dto.title,
       message: dto.message,
       data: dto.data || {},
-      action_url: dto. actionUrl
+      action_url: dto.actionUrl
     }));
 
-    await this.prisma.notification. createMany({
+    await this.prisma.notification.createMany({
       data: notifications
     });
 
     if (this.webSocketService) {
       const sampleNotification = notifications[0];
-      await this. webSocketService.sendNotificationToUsers(userIds, {
+      await this.webSocketService.sendNotificationToUsers(userIds, {
         id: 'bulk',
-        ... sampleNotification,
+        ...sampleNotification,
         created_at: new Date()
       });
     }
@@ -73,7 +83,7 @@ export class NotificationService {
 
   async getUserNotifications(userId: string, page: number = 1, limit: number = 20) {
     const skip = (page - 1) * limit;
-    
+
     const [notifications, total] = await Promise.all([
       this.prisma.notification.findMany({
         where: {
@@ -98,7 +108,7 @@ export class NotificationService {
   }
 
   async markAsRead(userId: string, notificationId: string): Promise<void> {
-    await this.prisma.notification. updateMany({
+    await this.prisma.notification.updateMany({
       where: {
         id: notificationId,
         user_id: userId
@@ -132,7 +142,7 @@ export class NotificationService {
   }
 
   async deleteNotification(userId: string, notificationId: string): Promise<void> {
-    await this.prisma.notification. updateMany({
+    await this.prisma.notification.updateMany({
       where: {
         id: notificationId,
         user_id: userId

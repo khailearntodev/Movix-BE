@@ -6,13 +6,13 @@ export function setNotificationService(service: any) {
   notificationService = service;
 }
 
-export async function notifyNewMovie(movieId: string, movieTitle: string) {
+export async function notifyNewMovie(movieSlug: string, movieTitle: string) {
   if (!notificationService) return;
-  
+
   await notificationService.broadcastSystemNotification(
     'Phim mới! ',
     `"${movieTitle}" vừa được thêm vào Movix`,
-    { movieId, actionUrl: `/movies/${movieId}` }
+    { movieSlug, actionUrl: `/movies/${movieSlug}` }
   );
 }
 
@@ -21,7 +21,7 @@ export async function notifyCommentReply(
   replyUserName: string,
   movieTitle: string,
   movieSlug: string
-  
+
 ) {
   if (!notificationService) return;
 
@@ -40,7 +40,7 @@ export async function notifySystem(userId: string, title: string, message: strin
 
   await notificationService.createNotification({
     userId,
-    type: NotificationType. SYSTEM,
+    type: NotificationType.SYSTEM,
     title,
     message,
     actionUrl
@@ -48,7 +48,7 @@ export async function notifySystem(userId: string, title: string, message: strin
 }
 
 export async function notifyMultipleUsers(userIds: string[], title: string, message: string, data?: any) {
-  if (! notificationService) return;
+  if (!notificationService) return;
 
   await notificationService.createBulkNotifications(userIds, {
     type: NotificationType.SYSTEM,

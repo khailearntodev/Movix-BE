@@ -1,9 +1,10 @@
 import { Request, Response } from 'express';
 import { NotificationService } from '../services/notification.service';
+import { PushNotificationService } from '../services/push-notification.service';
 
 export class NotificationController {
     private notificationService = new NotificationService();
-
+    private pushNotificationService = new PushNotificationService();
 
     async getNotifications(req: Request, res: Response) {
         try {
@@ -71,6 +72,20 @@ export class NotificationController {
         } catch (error) {
             console.error('deleteNotification:', error);
             res.status(500).json({ message: 'Lỗi khi xóa thông báo' });
+        }
+    }
+
+    // Subscribe Web Push
+    async subscribe(req: Request, res: Response) {
+        try {
+            const userId = req.userId!;
+            const subscription = req.body;
+
+            await this.pushNotificationService.subscribe(userId, subscription);
+            res.status(201).json({ success: true, message: 'Subscribed to push notifications' });
+        } catch (error) {
+            console.error('Subscribe error:', error);
+            res.status(500).json({ message: 'Failed to subscribe' });
         }
     }
 }

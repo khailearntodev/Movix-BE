@@ -6,7 +6,7 @@ import { PrismaClient } from '@prisma/client';
 export class WebSocketService {
   private io: SocketIOServer;
   private prisma: PrismaClient;
-  private userSockets: Map<string, Set<string>> = new Map(); 
+  private userSockets: Map<string, Set<string>> = new Map();
 
   constructor(server: HTTPServer) {
     this.io = new SocketIOServer(server, {
@@ -23,8 +23,18 @@ export class WebSocketService {
   private setupSocketHandlers(): void {
     this.io.use(async (socket, next) => {
       try {
-        const token = socket. handshake.auth.token || socket.handshake.headers. authorization?. replace('Bearer ', '');
-        
+        console.log('WebSocket Handshake Auth:', socket.handshake.auth);
+        let token = socket.handshake.auth.token || socket.handshake.headers.authorization?.replace('Bearer ', '');
+
+        if (!token && socket.handshake.headers.cookie) {
+          const cookies = socket.handshake.headers.cookie.split(';').reduce((acc: any, cookie) => {
+            const [key, value] = cookie.trim().split('=');
+            acc[key] = value;
+            return acc;
+          }, {});
+          token = cookies['accessToken'];
+        }
+
         if (!token) {
           return next(new Error('No token provided'));
         }
@@ -63,9 +73,9 @@ export class WebSocketService {
         console.log(`User ${user.username} disconnected`);
         const userSocketSet = this.userSockets.get(user.id);
         if (userSocketSet) {
-          userSocketSet.delete(socket. id);
+          userSocketSet.delete(socket.id);
           if (userSocketSet.size === 0) {
-            this.userSockets. delete(user.id);
+            this.userSockets.delete(user.id);
           }
         }
       });
@@ -89,15 +99,15 @@ export class WebSocketService {
         });
 
         this.sendUnreadCount(userId);
-        
+
         socket.emit('notification:marked-read', { notificationId });
       } catch (error) {
         socket.emit('notification:error', { message: 'Failed to mark as read' });
       }
     });
-    socket. on('notification:mark-all-read', async () => {
+    socket.on('notification:mark-all-read', async () => {
       try {
-        await this. prisma.notification.updateMany({
+        await this.prisma.notification.updateMany({
           where: {
             user_id: userId,
             is_read: false,
@@ -116,7 +126,7 @@ export class WebSocketService {
     });
     socket.on('notification:get-latest', async (limit: number = 5) => {
       try {
-        const notifications = await this.prisma. notification.findMany({
+        const notifications = await this.prisma.notification.findMany({
           where: {
             user_id: userId,
             is_deleted: false
@@ -130,7 +140,7 @@ export class WebSocketService {
         socket.emit('notification:error', { message: 'Failed to fetch notifications' });
       }
     });
-   
+
   }
 
   async sendNotificationToUser(userId: string, notification: any): Promise<void> {
@@ -154,7 +164,7 @@ export class WebSocketService {
       message: notification.message,
       data: notification.data,
       actionUrl: notification.action_url,
-      createdAt: notification. created_at
+      createdAt: notification.created_at
     };
 
     userIds.forEach(userId => {
@@ -195,7 +205,7 @@ export class WebSocketService {
   }
 
   getOnlineUsers(): string[] {
-    return Array.from(this. userSockets.keys());
+    return Array.from(this.userSockets.keys());
   }
 
   getOnlineUserCount(): number {
