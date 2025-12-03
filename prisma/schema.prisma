@@ -71,6 +71,7 @@ model User {
   watch_party_members  WatchPartyMember[]
   user_flag_logs       UserFlagLog[]      @relation("FlaggedUser")
   admin_flag_logs      UserFlagLog[]      @relation("AdminUser")
+  push_subscriptions   PushSubscription[]
 }
 
 model PasswordReset {
@@ -296,16 +297,25 @@ model PlaylistMovie {
 
   @@unique([playlist_id, movie_id])
 }
-
+enum NotificationType {
+  NEW_MOVIE          
+  COMMENT_REPLY      
+  WATCH_PARTY_INVITE 
+  SYSTEM             
+}
 model Notification {
-  id         String   @id @default(uuid()) @db.Uuid
-  user_id    String?  @db.Uuid
+  id         String           @id @default(uuid()) @db.Uuid
+  user_id    String?           @db.Uuid
+  type       NotificationType @default(SYSTEM)
+  title      String           @db.VarChar(200)
   message    String
-  is_read    Boolean  @default(false)
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
-  is_deleted Boolean  @default(false)
-  user       User?    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  data       Json?            
+  action_url String?          
+  is_read    Boolean          @default(false)
+  created_at DateTime         @default(now())
+  updated_at DateTime         @updatedAt
+  is_deleted Boolean          @default(false)
+  user User?  @relation(fields: [user_id], references: [id], onDelete: Cascade)
 }
 
 model ChatbotLog {
@@ -408,4 +418,15 @@ model RefreshToken {
   createdAt DateTime @default(now())
 
   @@map("refresh_tokens")
+}
+
+model PushSubscription {
+  id         String   @id @default(uuid()) @db.Uuid
+  user_id    String   @db.Uuid
+  endpoint   String   @unique
+  p256dh     String
+  auth       String
+  created_at DateTime @default(now())
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
 }

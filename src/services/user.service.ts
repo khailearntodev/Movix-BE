@@ -109,3 +109,8 @@ export const changePassword = async (
 
   return true;
 };
+export const getUserById = async (userId: string) => {
+  return prisma.user.findUnique({
+    where: { id: userId },
+  });
+}
