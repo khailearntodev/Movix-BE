@@ -12,8 +12,9 @@ router.get('/favorites', interactionController.getFavoriteMovies);
 router.get('/favorite/status', interactionController.checkFavoriteStatus);
 
 // Playlists
-router.get('/playlists', interactionController.getPlaylists);
+router.get('/playlists', interactionController.getPlaylists); 
+router.get('/playlists/:id', interactionController.getPlaylistDetail); 
 router.post('/playlist/create', interactionController.createPlaylist);
 router.post('/playlist/add', interactionController.addMovieToPlaylist);
-
+router.delete('/playlists/:id/movies/:movieId', interactionController.removeMovieFromPlaylist); 
 export default router;

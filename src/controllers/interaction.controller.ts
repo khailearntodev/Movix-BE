@@ -57,6 +57,22 @@ export const interactionController = {
     }
   },
 
+  // Lấy chi tiết playlist
+  getPlaylistDetail: async (req: Request, res: Response) => {
+    try {
+      const userId = getUserId(req);
+      const { id } = req.params;
+      
+      const playlistDetail = await interactService.getPlaylistDetail(userId, id);
+      res.status(200).json(playlistDetail);
+    } catch (error: any) {
+      if (error.message === 'PLAYLIST_NOT_FOUND') {
+        return res.status(404).json({ message: 'Không tìm thấy playlist này.' });
+      }
+      res.status(500).json({ message: 'Lỗi máy chủ' });
+    }
+  },
+
   createPlaylist: async (req: Request, res: Response) => {
     try {
       const userId = getUserId(req);
@@ -90,4 +106,23 @@ export const interactionController = {
       res.status(500).json({ message: 'Lỗi máy chủ' });
     }
   },
+
+  // Xóa phim khỏi playlist
+  removeMovieFromPlaylist: async (req: Request, res: Response) => {
+    try {
+      const userId = getUserId(req);
+      const { id, movieId } = req.params; 
+
+      await interactService.removeMovieFromPlaylist(userId, id, movieId);
+      res.status(200).json({ message: 'Đã xóa phim khỏi playlist.' });
+    } catch (error: any) {
+      if (error.message === 'PLAYLIST_NOT_FOUND') {
+        return res.status(404).json({ message: 'Không tìm thấy playlist.' });
+      }
+      if (error.message === 'MOVIE_NOT_IN_PLAYLIST') {
+        return res.status(404).json({ message: 'Phim không có trong playlist này.' });
+      }
+      res.status(500).json({ message: 'Lỗi máy chủ' });
+    }
+  }
 };

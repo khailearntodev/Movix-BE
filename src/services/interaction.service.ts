@@ -56,7 +56,7 @@ export const getPlaylists = async (userId: string) => {
     where: { user_id: userId, is_deleted: false },
     include: {
       _count: {
-        select: { playlist_movies: true },
+        select: { playlist_movies: { where: { is_deleted: false } } }, 
       },
     },
     orderBy: { created_at: 'desc' },
@@ -95,7 +95,17 @@ export const addMovieToPlaylist = async (
   });
 
   if (existingEntry) {
-    throw new Error('MOVIE_ALREADY_IN_PLAYLIST');
+    if (existingEntry.is_deleted) {
+      return prisma.playlistMovie.update({
+        where: { id: existingEntry.id },
+        data: { 
+          is_deleted: false,
+          created_at: new Date()
+        },
+      });
+    } else {
+      throw new Error('MOVIE_ALREADY_IN_PLAYLIST');
+    }
   }
   return prisma.playlistMovie.create({
     data: {
@@ -103,4 +113,60 @@ export const addMovieToPlaylist = async (
       movie_id: movieId,
     },
   });
+};
+export const getPlaylistDetail = async (userId: string, playlistId: string) => {
+  const playlist = await prisma.playlist.findFirst({
+    where: { 
+      id: playlistId, 
+      user_id: userId,
+      is_deleted: false
+    },
+    include: {
+      playlist_movies: {
+        where: { is_deleted: false },
+        orderBy: { created_at: 'desc' }, 
+        include: {
+          movie: true 
+        }
+      }
+    }
+  });
+
+  if (!playlist) {
+    throw new Error('PLAYLIST_NOT_FOUND');
+  }
+
+  const movies = playlist.playlist_movies.map(pm => ({
+    ...pm.movie,
+    added_at: pm.created_at 
+  }));
+  const { playlist_movies, ...playlistInfo } = playlist;
+
+  return {
+    ...playlistInfo,
+    movies: movies
+  };
+};
+export const removeMovieFromPlaylist = async (userId: string, playlistId: string, movieId: string) => {
+  const playlist = await prisma.playlist.findFirst({
+    where: { id: playlistId, user_id: userId }
+  });
+
+  if (!playlist) {
+    throw new Error('PLAYLIST_NOT_FOUND');
+  }
+
+  try {
+    return await prisma.playlistMovie.update({
+      where: {
+        playlist_id_movie_id: {
+          playlist_id: playlistId,
+          movie_id: movieId
+        }
+      },
+      data: { is_deleted: true }
+    });
+  } catch (error) {
+    throw new Error('MOVIE_NOT_IN_PLAYLIST');
+  }
 };
