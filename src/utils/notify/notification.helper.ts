@@ -1,9 +1,16 @@
 import { NotificationType } from '../../types/notification';
-
+import { NotificationService } from '../../services/notification.service';
 let notificationService: any = null;
 
 export function setNotificationService(service: any) {
   notificationService = service;
+}
+
+export function getNotificationService(): NotificationService {
+  if (!notificationService) {
+    throw new Error("NotificationService chưa được khởi tạo!");
+  }
+  return notificationService;
 }
 
 export async function notifyNewMovie(movieSlug: string, movieTitle: string) {

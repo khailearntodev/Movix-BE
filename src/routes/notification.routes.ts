@@ -8,6 +8,9 @@ router.use(authenticateToken);
 // Lấy danh sách thông báo
 router.get('/', controller.getNotifications.bind(controller));
 
+// Lấy lịch sử thông báo hệ thống
+router.get('/history', controller.getHistory.bind(controller));
+
 // Lấy số lượng chưa đọc
 router.get('/unread-count', controller.getUnreadCount.bind(controller));
 
@@ -22,5 +25,7 @@ router.delete('/:notificationId', controller.deleteNotification.bind(controller)
 
 // Subscribe Web Push
 router.post('/subscribe', controller.subscribe.bind(controller));
+
+router.post('/send', controller.sendCustomNotification.bind(controller));
 
 export default router;

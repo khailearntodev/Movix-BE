@@ -65,37 +65,66 @@ export class NotificationService {
         created_at: new Date()
       });
     }
+
+    const pushPromises = userIds.map(userId => 
+      this.pushNotificationService.sendNotification(userId, {
+        title: dto.title,
+        message: dto.message,
+        url: dto.actionUrl,
+      })
+    );
+
+    Promise.allSettled(pushPromises).then(results => {
+        const failed = results.filter(r => r.status === 'rejected');
+        if (failed.length > 0) {
+            console.warn(`⚠️ Có ${failed.length}/${userIds.length} thông báo đẩy bị lỗi (có thể do user chưa subscribe).`);
+        }
+    });
   }
 
-  async broadcastSystemNotification(title: string, message: string, data?: any): Promise<void> {
-    const notification = await this.prisma.notification.create({
-      data: {
-        type: NotificationType.SYSTEM,
-        title,
-        message,
-        data: data || {}
-      }
+async broadcastSystemNotification(title: string, message: string, data?: any): Promise<void> {
+    const users = await this.prisma.user.findMany({
+        where: { is_deleted: false, status: 'active' },
+        select: { id: true }
     });
-    if (this.webSocketService) {
-      await this.webSocketService.broadcastSystemNotification(notification);
-    }
+    const userIds = users.map(u => u.id);
+    if (userIds.length === 0) return;
+
+    const actionUrl = data?.actionUrl;
+    
+    await this.createBulkNotifications(userIds, {
+      type: 'SYSTEM' as any,
+      title,
+      message,
+      data: data || {},
+      actionUrl
+    });
+
   }
 
   async getUserNotifications(userId: string, page: number = 1, limit: number = 20) {
     const skip = (page - 1) * limit;
+    const whereCondition = {
+      AND: [
+        { is_deleted: false },
+        {
+          OR: [
+            { user_id: userId },    
+            { user_id: null, type: 'SYSTEM' as any } 
+          ]
+        }
+      ]
+    };
 
     const [notifications, total] = await Promise.all([
       this.prisma.notification.findMany({
-        where: {
-          user_id: userId,
-          is_deleted: false
-        },
+        where: whereCondition,
         orderBy: { created_at: 'desc' },
         skip,
         take: limit
       }),
       this.prisma.notification.count({
-        where: { user_id: userId, is_deleted: false }
+        where: whereCondition
       })
     ]);
 
@@ -134,9 +163,12 @@ export class NotificationService {
   async getUnreadCount(userId: string): Promise<number> {
     return await this.prisma.notification.count({
       where: {
-        user_id: userId,
         is_read: false,
-        is_deleted: false
+        is_deleted: false,
+        OR: [
+          { user_id: userId },
+          { user_id: null, type: 'SYSTEM' as any }
+        ]
       }
     });
   }
@@ -164,5 +196,97 @@ export class NotificationService {
       isRead: notification.is_read,
       createdAt: notification.created_at
     };
+  }
+
+  async getAllAdminIds(): Promise<string[]> {
+    const admins = await this.prisma.user.findMany({
+      where: {
+        role: { name: 'Admin' },
+        is_deleted: false
+      },
+      select: { id: true }
+    });
+    return admins.map(a => a.id);
+  }
+
+  async getAllUserIds(): Promise<string[]> {
+    const users = await this.prisma.user.findMany({
+      where: { is_deleted: false, status: 'active' },
+      select: { id: true }
+    });
+    return users.map(u => u.id);
+  }
+
+  async getSystemNotificationHistory(page = 1, limit = 10) {
+    const skip = (page - 1) * limit;
+    
+    const whereCondition = {
+      type: 'SYSTEM' as any, 
+      is_deleted: false,
+      OR: [
+        { user_id: null }, 
+        {
+            user: {
+                OR: [
+                    { role: { name: 'Admin' } }, 
+                    { is_flagged: true }       
+                ]
+            }
+        }
+      ]
+    };
+    const [history, total] = await Promise.all([
+      this.prisma.notification.findMany({
+        where: whereCondition,
+        orderBy: { created_at: 'desc' },
+        skip,
+        take: limit,
+        include: {
+            user: {
+                select: { 
+                    id: true, 
+                    username: true, 
+                    display_name: true, 
+                    avatar_url: true,
+                    role: { select: { name: true } }, 
+                    is_flagged: true                  
+                }
+            }
+        }
+      }),
+      this.prisma.notification.count({ where: whereCondition })
+    ]);
+
+    return {
+      data: history.map(item => ({
+          ...this.formatResponse(item),
+          recipient: item.user ? {
+              username: item.user.username,
+              displayName: item.user.display_name,
+              avatarUrl: item.user.avatar_url,
+              role: item.user.role?.name,
+              isFlagged: item.user.is_flagged
+          } : null
+      })),
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit)
+      }
+    };
+  }
+
+  async notifyAdminsAboutFlaggedActivity(username: string, action: string, link: string) {
+    const adminIds = await this.getAllAdminIds();
+    if (adminIds.length === 0) return;
+
+    await this.createBulkNotifications(adminIds, {
+      type: NotificationType.SYSTEM,
+      title: '⚠️ Cảnh báo: User bị gắn cờ',
+      message: `User "${username}" vừa ${action}. Cần xem xét ngay.`,
+      actionUrl: link,
+      data: { flagged: true }
+    });
   }
 }
