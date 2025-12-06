@@ -22,7 +22,26 @@ async function generateContentSafe(prompt: string) {
   throw new Error("Tất cả các model AI đều không phản hồi.");
 }
 
-export const chatWithAI = async (userMessage: string, userId?: string) => {
+function fileToGenerativePart(buffer: Buffer, mimeType: string) {
+  return {
+    inlineData: {
+      data: buffer.toString("base64"),
+      mimeType,
+    },
+  };
+}
+
+export const chatWithAI = async (userMessage: string, userId?: string, isRaw: boolean = false) => {
+
+  if (isRaw) {
+      try {
+          const response = await generateContentSafe(userMessage);
+          return response;
+      } catch (error: any) {
+          console.error("AI Raw Error:", error);
+          return "Lỗi khi hỏi AI.";
+      }
+  }
   // 1. Lấy dữ liệu phim
   const availableMovies = await prisma.movie.findMany({
     where: { is_deleted: false, is_active: true },
@@ -30,6 +49,7 @@ export const chatWithAI = async (userMessage: string, userId?: string) => {
     orderBy: { created_at: 'desc' },
     select: {
       title: true,
+      slug: true,
       movie_genres: { select: { genre: { select: { name: true } } } },
       release_date: true,
     }
@@ -39,16 +59,20 @@ export const chatWithAI = async (userMessage: string, userId?: string) => {
   const moviesContext = availableMovies.map(m => {
     const genres = m.movie_genres.map(mg => mg.genre.name).join(", ");
     const year = m.release_date ? new Date(m.release_date).getFullYear() : "N/A";
-    return `- ${m.title} (${year}) [${genres}]`;
+    return `Phim: "${m.title}" (Năm: ${year}, Slug: ${m.slug}) - Thể loại: ${genres}`;
   }).join("\n");
 
   const prompt = `
-    Bạn là trợ lý ảo của Movix. Dưới đây là phim mới:
+    Bạn là trợ lý ảo của Movix. Dưới đây là danh sách phim có trong hệ thống:
     ${moviesContext}
     
-    User hỏi: "${userMessage}"
+    Câu hỏi của user: "${userMessage}"
     
-    Trả lời ngắn gọn tiếng Việt. Ưu tiên gợi ý phim trong list trên.
+    Yêu cầu:
+    - Trả lời ngắn gọn, thân thiện bằng tiếng Việt.
+    - QUAN TRỌNG: Khi nhắc đến tên phim có trong danh sách, HÃY ĐỊNH DẠNG NÓ NHƯ SAU: [Tên phim](/movies/slug-cua-phim).
+    - Ví dụ: Nếu gợi ý phim Mai có slug là 'mai-2024', hãy viết là: Bạn có thể xem [Mai](/movies/mai-2024) nhé.
+    - Chỉ gợi ý phim có trong danh sách trên.
   `;
 
   let logId = null;
@@ -121,6 +145,54 @@ export const searchMoviesByAI = async (query: string) => {
 
   } catch (error) {
     console.error("AI Search Error:", error);
+    return [];
+  }
+};
+
+export const searchMoviesByVoice = async (audioBuffer: Buffer, mimeType: string) => {
+  const movies = await prisma.movie.findMany({
+    where: { is_deleted: false, is_active: true },
+    select: {
+      id: true,
+      title: true,
+      description: true,
+      movie_genres: { select: { genre: { select: { name: true } } } }
+    }
+  });
+
+  const moviesContext = movies.map(m => 
+    `ID:${m.id}|Tên:${m.title}|Nội dung:${m.description}|TL:${m.movie_genres.map(g => g.genre.name).join(",")}`
+  ).join("\n");
+
+  const promptText = `
+    Dưới đây là danh sách phim trong cơ sở dữ liệu:
+    ${moviesContext}
+
+    Hãy nghe đoạn ghi âm của người dùng (có thể là tên phim hoặc mô tả nội dung).
+    Hãy tìm các phim trong danh sách trên phù hợp nhất với lời nói đó.
+    CHỈ TRẢ VỀ JSON Mảng ID: ["id1", "id2"]. 
+    Nếu không tìm thấy, trả về []. Không giải thích thêm.
+  `;
+
+  try {
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" }); 
+
+    const imagePart = fileToGenerativePart(audioBuffer, mimeType);
+    const result = await model.generateContent([promptText, imagePart]);
+    const responseText = result.response.text();
+
+    const cleanedText = responseText.replace(/```json/g, "").replace(/```/g, "").trim();
+    const movieIds = JSON.parse(cleanedText);
+
+    if (!Array.isArray(movieIds) || movieIds.length === 0) return [];
+
+    return await prisma.movie.findMany({
+      where: { id: { in: movieIds } },
+      include: { movie_genres: { include: { genre: true } } }
+    });
+
+  } catch (error) {
+    console.error("AI Voice Search Error:", error);
     return [];
   }
 };

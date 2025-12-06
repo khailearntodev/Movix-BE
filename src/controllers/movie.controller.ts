@@ -92,7 +92,6 @@ export const movieController = {
       res.status(500).json({ error: 'Lỗi máy chủ' });
     }
   },
-
   getMovieBySlug: async (req: Request, res: Response) => {
     const { slug } = req.params;
 

@@ -14,7 +14,17 @@ const tmdbApiClient = axios.create({
 
 const getPersonDetails = async (personId: number) => {
   try {
-    const response = await tmdbApiClient.get(`/person/${personId}`);
+    let response = await tmdbApiClient.get(`/person/${personId}`);
+    if (!response.data.biography) {
+        const responseEn = await tmdbApiClient.get(`/person/${personId}`, {
+            params: { language: 'en-US' } 
+        });
+        
+        if (responseEn.data.biography) {
+            response.data.biography = responseEn.data.biography;
+        }
+    }
+
     return response.data;
   } catch (error) {
     console.warn(`Không lấy được info person ${personId}`, error);

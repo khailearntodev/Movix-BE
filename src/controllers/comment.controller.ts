@@ -1,7 +1,9 @@
 import { Request, Response } from 'express';
 import * as commentService from '../services/comment.service';
+import * as userService from '../services/user.service';
+import * as movieService from '../services/movie.service';
 import { checkToxicity } from '../services/perspective.service';
-
+import { notifyCommentReply } from '../utils/notify/notification.helper';
 const getUserId = (req: Request) => req.userId as string;
 
 export const commentController = {
@@ -45,6 +47,28 @@ export const commentController = {
           is_hidden: true
         });
       }
+      if (parentCommentId && !shouldHide) {
+        try {
+          const parentComment = await commentService.getCommentById(parentCommentId);
+          if (parentComment && parentComment.user_id !== userId) {
+            const [currentUser, currentMovie] = await Promise.all([
+              userService.getUserById(userId),
+              movieService.getMovieById(movieId)
+            ]);
+
+            if (currentUser && currentMovie) {
+              await notifyCommentReply(
+                parentComment.user_id,
+                currentUser.username || currentUser.display_name,
+                currentMovie.title,
+                currentMovie.slug
+              );
+            }
+          }
+        } catch (notifyError) {
+          console.error('Lỗi gửi thông báo reply:', notifyError);
+        }
+      }
       res.status(201).json(newComment);
     } catch (error) {
       res.status(500).json({ message: 'Lỗi máy chủ' });
@@ -75,7 +99,7 @@ export const commentController = {
           .json({ message: 'Không tìm thấy bình luận hoặc bạn không có quyền' });
       }
       if (shouldHide) {
-         return res.status(200).json({ message: 'Cập nhật thành công, nhưng bình luận đã bị ẩn do nội dung nhạy cảm.' });
+        return res.status(200).json({ message: 'Cập nhật thành công, nhưng bình luận đã bị ẩn do nội dung nhạy cảm.' });
       }
       res.status(200).json({ message: 'Cập nhật bình luận thành công' });
 

@@ -1,5 +1,5 @@
 import { prisma } from '../lib/prisma';
-
+import { notificationService } from '../index';
 export const getCommentsByMovie = async (movieId: string) => {
   return prisma.comment.findMany({
     where: {
@@ -62,7 +62,28 @@ export const createComment = async (
     },
   });
 
+  try {
+    const author = await prisma.user.findUnique({ 
+      where: { id: userId },
+      select: { id: true, username: true, display_name: true, is_flagged: true }
+    });
 
+    if (author?.is_flagged) {
+      const movie = await prisma.movie.findUnique({
+        where: { id: movieId },
+        select: { title: true }
+      });
+
+      const actionDescription = `đã đăng bình luận: "${comment.length > 30 ? comment.substring(0, 30) + '...' : comment}" tại phim "${movie?.title}"`;
+      await notificationService.notifyAdminsAboutFlaggedActivity(
+        author.display_name || author.username,
+        actionDescription,
+        '/admin/comment-management?filter=flagged' 
+      );
+    }
+  } catch (error) {
+    console.error("Lỗi khi gửi cảnh báo user bị gắn cờ:", error);
+  }
 
   return prisma.comment.findUnique({
     where: { id: newComment.id },
@@ -109,5 +130,10 @@ export const deleteComment = async (userId: string, commentId: string) => {
       is_deleted: true,
       comment: '[Bình luận đã bị xóa]', 
     },
+  });
+};
+export const getCommentById = async (commentId: string) => {
+  return prisma.comment.findUnique({
+    where: { id: commentId },
   });
 };
