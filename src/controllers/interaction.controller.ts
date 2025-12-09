@@ -124,5 +124,88 @@ export const interactionController = {
       }
       res.status(500).json({ message: 'Lỗi máy chủ' });
     }
-  }
+  },
+  rateMovie: async (req: Request, res: Response) => {
+    try {
+      const userId = getUserId(req);
+      const { movieId, rating } = req.body;
+
+      if (!movieId || rating === undefined) {
+        return res.status(400).json({ message: 'Thiếu movieId hoặc điểm đánh giá.' });
+      }
+
+      const result = await interactService.upsertRating(userId, movieId, Number(rating));
+      res.status(200).json({ message: 'Đánh giá thành công.', data: result });
+    } catch (error: any) {
+      if (error.message === 'INVALID_RATING_VALUE') {
+        return res.status(400).json({ message: 'Điểm đánh giá phải từ 1 đến 10.' });
+      }
+      res.status(500).json({ message: 'Lỗi máy chủ.' });
+    }
+  },
+
+  // GET /api/interact/rating/my-rate?movieId=...
+  getMyRating: async (req: Request, res: Response) => {
+    try {
+      const userId = getUserId(req);
+      const { movieId } = req.query;
+
+      if (!movieId) {
+        return res.status(400).json({ message: 'Thiếu movieId.' });
+      }
+
+      const rating = await interactService.getUserRating(userId, movieId as string);
+      
+      res.status(200).json({ 
+        hasRated: !!rating,
+        rating: rating ? rating.rating : null 
+      });
+    } catch (error) {
+      res.status(500).json({ message: 'Lỗi máy chủ.' });
+    }
+  },
+
+  // DELETE /api/interact/rating/:movieId
+  deleteRating: async (req: Request, res: Response) => {
+    try {
+      const userId = getUserId(req);
+      const { movieId } = req.params;
+
+      await interactService.deleteRating(userId, movieId);
+      res.status(200).json({ message: 'Đã xóa đánh giá.' });
+    } catch (error: any) {
+      if (error.message === 'RATING_NOT_FOUND') {
+        return res.status(404).json({ message: 'Bạn chưa đánh giá phim này.' });
+      }
+      res.status(500).json({ message: 'Lỗi máy chủ.' });
+    }
+  },
+
+  // GET /api/interact/rating/stats/:movieId
+  getMovieRatingStats: async (req: Request, res: Response) => {
+    try {
+      const { movieId } = req.params;
+      const stats = await interactService.getMovieRatingStats(movieId);
+      res.status(200).json(stats);
+    } catch (error) {
+      res.status(500).json({ message: 'Lỗi máy chủ.' });
+    }
+  },
+  getMovieRatings: async (req: Request, res: Response) => {
+    try {
+      const { movieId } = req.params;
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 10;
+
+      if (!movieId) {
+        return res.status(400).json({ message: 'Thiếu movieId.' });
+      }
+
+      const result = await interactService.getMovieRatings(movieId, page, limit);
+      res.status(200).json(result);
+    } catch (error) {
+      console.error('Get movie ratings error:', error);
+      res.status(500).json({ message: 'Lỗi máy chủ.' });
+    }
+  },
 };

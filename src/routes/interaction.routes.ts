@@ -4,6 +4,8 @@ import { authenticateToken } from '../middlewares/auth.middleware';
 
 const router = express.Router();
 
+router.get('/rating/stats/:movieId', interactionController.getMovieRatingStats);
+router.get('/rating/list/:movieId', interactionController.getMovieRatings);
 router.use(authenticateToken);
 
 // Favorites
@@ -17,4 +19,10 @@ router.get('/playlists/:id', interactionController.getPlaylistDetail);
 router.post('/playlist/create', interactionController.createPlaylist);
 router.post('/playlist/add', interactionController.addMovieToPlaylist);
 router.delete('/playlists/:id/movies/:movieId', interactionController.removeMovieFromPlaylist); 
+
+//ratings
+router.post('/rating', interactionController.rateMovie);       
+router.get('/rating/my-rate', interactionController.getMyRating); 
+router.delete('/rating/:movieId', interactionController.deleteRating);
+router.get('/rating/stats/:movieId', interactionController.getMovieRatingStats);
 export default router;
