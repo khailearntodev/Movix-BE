@@ -110,7 +110,7 @@ model Movie {
   is_deleted     Boolean   @default(false)
 
   // Relations
-  country         Country?           @relation(fields: [country_id], references: [id], onDelete: SetNull)
+  country         Country?             @relation(fields: [country_id], references: [id], onDelete: SetNull)
   movie_genres    MovieGenre[]
   movie_people    MoviePerson[]
   ratings         Rating[]
@@ -120,9 +120,18 @@ model Movie {
   playlist_movies PlaylistMovie[]
   watch_parties   WatchParty[]
   section_links   SectionMovieLink[]
+  recommendation  MovieRecommendation?
 
   @@unique([tmdb_id, media_type])
   @@map("movies")
+}
+
+model MovieRecommendation {
+  id             String   @id @default(uuid()) @db.Uuid
+  movie_id       String   @unique @db.Uuid
+  similar_movies Json
+  updated_at     DateTime @updatedAt
+  movie          Movie    @relation(fields: [movie_id], references: [id], onDelete: Cascade)
 }
 
 model Genre {
@@ -153,7 +162,7 @@ model Person {
   biography    String?
   stage_name   String?       @db.VarChar(300)
   birthday     DateTime?     @db.Date
-  gender       Int?          //1 = Nữ, 2 = Nam, 0 = Không rõ, 3 = Non-binary
+  gender       Int? //1 = Nữ, 2 = Nam, 0 = Không rõ, 3 = Non-binary
   role_type    String        @db.VarChar(50) // "actor", "director", "writer"...
   avatar_url   String?
   created_at   DateTime      @default(now())
@@ -168,7 +177,7 @@ model MoviePerson {
   person_id   String     @db.Uuid
   credit_type CreditType // Sử dụng Enum từ CHECK
   character   String?    @db.VarChar(300)
-  ordering    Int        @default(0) 
+  ordering    Int        @default(0)
   created_at  DateTime   @default(now())
   updated_at  DateTime   @updatedAt
   is_deleted  Boolean    @default(false)
@@ -297,25 +306,27 @@ model PlaylistMovie {
 
   @@unique([playlist_id, movie_id])
 }
+
 enum NotificationType {
-  NEW_MOVIE          
-  COMMENT_REPLY      
-  WATCH_PARTY_INVITE 
-  SYSTEM             
+  NEW_MOVIE
+  COMMENT_REPLY
+  WATCH_PARTY_INVITE
+  SYSTEM
 }
+
 model Notification {
   id         String           @id @default(uuid()) @db.Uuid
-  user_id    String?           @db.Uuid
+  user_id    String?          @db.Uuid
   type       NotificationType @default(SYSTEM)
   title      String           @db.VarChar(200)
   message    String
-  data       Json?            
-  action_url String?          
+  data       Json?
+  action_url String?
   is_read    Boolean          @default(false)
   created_at DateTime         @default(now())
   updated_at DateTime         @updatedAt
   is_deleted Boolean          @default(false)
-  user User?  @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  user       User?            @relation(fields: [user_id], references: [id], onDelete: Cascade)
 }
 
 model ChatbotLog {
