@@ -11,13 +11,19 @@ router.get('/', watchPartyController.getAll);
 // 2. Tạo phòng mới
 router.post('/', watchPartyController.create);
 
-// 3. Đăng ký nhận thông báo phim sắp chiếu
+// 3. Tìm phòng bằng mã code
+router.post('/join', watchPartyController.joinByCode);
+
+// 4. Đăng ký nhận thông báo phim sắp chiếu
 router.post('/:id/remind', watchPartyController.toggleReminder);
 
-// 4. Kết thúc phòng (chỉ host mới có quyền)
+// 5. Kết thúc phòng (chỉ host mới có quyền)
 router.put('/:id/end', watchPartyController.end);
 
-// 5. Hủy phòng sắp chiếu (chỉ host mới có quyền)
+// 6. Hủy phòng sắp chiếu (chỉ host mới có quyền)
 router.delete('/:id', watchPartyController.cancel);
+
+// 7. Lấy chi tiết phòng để tham gia
+router.get('/:id', watchPartyController.getDetails);
 
 export default router;

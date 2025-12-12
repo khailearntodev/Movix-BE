@@ -2,6 +2,8 @@ import { Request, Response } from 'express';
 import { watchPartyService } from '../services/watch-party.service';
 
 export const watchPartyController = {
+  
+  // 1. Tạo phòng mới (Live hoặc Scheduled)
   create: async (req: Request, res: Response) => {
     try {
       const userId = req.userId!; 
@@ -24,12 +26,16 @@ export const watchPartyController = {
       if (error.message === "USER_HAS_ACTIVE_PARTY") {
           return res.status(409).json({ message: "Bạn đang có một phòng hoạt động. Hãy kết thúc nó trước khi tạo mới." });
       }
+      if (error.message === "MOVIE_SOURCE_NOT_FOUND") {
+          return res.status(404).json({ message: "Không tìm thấy tập phim để phát." });
+      }
       
       console.error("Create Party Error:", error);
       res.status(500).json({ message: "Lỗi máy chủ khi tạo phòng." });
     }
   },
 
+  // 2. Lấy danh sách phòng (Sảnh chờ - Có lọc & Tìm kiếm)
   getAll: async (req: Request, res: Response) => {
     try {
       const filter = (req.query.filter as 'live' | 'scheduled' | 'ended') || 'live';
@@ -44,6 +50,26 @@ export const watchPartyController = {
     }
   },
 
+  // 3. Lấy chi tiết phòng (Để tham gia vào phòng)
+  getDetails: async (req: Request, res: Response) => {
+    try {
+      const userId = req.userId!;
+      const { id } = req.params;
+
+      if (!id) return res.status(400).json({ message: "Thiếu ID phòng." });
+
+      const result = await watchPartyService.getDetails(id, userId);
+      res.json(result);
+    } catch (error: any) {
+      if (error.message === "PARTY_NOT_FOUND") return res.status(404).json({ message: "Phòng không tồn tại." });
+      if (error.message === "PARTY_ENDED") return res.status(410).json({ message: "Phòng đã kết thúc." });
+      
+      console.error("Get Party Details Error:", error);
+      res.status(500).json({ message: "Lỗi khi lấy thông tin phòng." });
+    }
+  },
+
+  // 4. Đăng ký/Hủy đăng ký nhận thông báo
   toggleReminder: async (req: Request, res: Response) => {
     try {
       const userId = req.userId!;
@@ -57,6 +83,7 @@ export const watchPartyController = {
     }
   },
 
+  // 5. Hủy lịch công chiếu (Chỉ Host - Xóa phòng chưa bắt đầu)
   cancel: async (req: Request, res: Response) => {
     try {
       const userId = req.userId!;
@@ -74,6 +101,7 @@ export const watchPartyController = {
     }
   },
 
+  // 6. Kết thúc phòng đang chiếu (Chỉ Host - Đóng phòng Active)
   end: async (req: Request, res: Response) => {
     try {
       const userId = req.userId!;
@@ -88,6 +116,20 @@ export const watchPartyController = {
       }
       console.error("End Party Error:", error);
       res.status(500).json({ message: "Lỗi khi kết thúc phòng." });
+    }
+  }, 
+
+  joinByCode: async (req: Request, res: Response) => {
+    try {
+      const { code } = req.body;
+      if (!code) return res.status(400).json({ message: "Vui lòng nhập mã phòng." });
+
+      const result = await watchPartyService.joinByCode(code);
+      res.json(result); 
+    } catch (error: any) {
+      if (error.message === "INVALID_CODE") return res.status(404).json({ message: "Mã phòng không tồn tại." });
+      if (error.message === "PARTY_ENDED") return res.status(410).json({ message: "Phòng này đã kết thúc." });
+      res.status(500).json({ message: "Lỗi máy chủ." });
     }
   }
 };

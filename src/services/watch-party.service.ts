@@ -2,6 +2,7 @@ import { prisma } from '../lib/prisma';
 import { Prisma } from '@prisma/client';
 
 export const watchPartyService = {
+  // 1. TẠO PHÒNG
   create: async (userId: string, data: { 
     title: string; 
     movieId: string; 
@@ -21,6 +22,31 @@ export const watchPartyService = {
       throw new Error("USER_HAS_ACTIVE_PARTY");
     }
 
+    let finalEpisodeId = data.episodeId;
+
+    if (!finalEpisodeId) {
+        const movie = await prisma.movie.findUnique({
+            where: { id: data.movieId },
+            include: {
+                seasons: {
+                    take: 1,
+                    include: {
+                        episodes: { take: 1 } 
+                    }
+                }
+            }
+        });
+
+
+        const firstEp = movie?.seasons[0]?.episodes[0];
+        if (firstEp) {
+            finalEpisodeId = firstEp.id;
+        } else {
+            throw new Error("MOVIE_SOURCE_NOT_FOUND");
+        }
+    }
+    // ---------------------------------------
+
     const joinCode = data.isPrivate 
       ? Math.random().toString(36).substring(2, 8).toUpperCase() 
       : null;
@@ -32,7 +58,7 @@ export const watchPartyService = {
         host_user_id: userId,
         title: data.title,
         movie_id: data.movieId,
-        episode_id: data.episodeId || null, 
+        episode_id: finalEpisodeId, 
         is_private: data.isPrivate,
         join_code: joinCode,
         scheduled_at: data.scheduledAt ? new Date(data.scheduledAt) : null,
@@ -54,32 +80,31 @@ export const watchPartyService = {
     });
   },
 
+  // 2. LẤY DANH SÁCH (SẢNH CHỜ)
   getAll: async (filter: 'live' | 'scheduled' | 'ended' = 'live', search?: string) => {
     const where: Prisma.WatchPartyWhereInput = {};
     if (filter === 'live') {
       where.is_active = true;
-      where.started_at = { not: null }; // Đã bắt đầu
+      where.started_at = { not: null };
     } else if (filter === 'scheduled') {
       where.is_active = true;
-      where.started_at = null; // Chưa bắt đầu
-      where.scheduled_at = { not: null }; // Có lịch
+      where.started_at = null;
+      where.scheduled_at = { not: null };
     } else if (filter === 'ended') {
       where.is_active = false;
     }
 
-    // B. Xử lý tìm kiếm (Search)
     if (search && search.trim() !== '') {
         where.OR = [
-            { title: { contains: search, mode: 'insensitive' } }, // Tìm theo tên phòng
-            { movie: { title: { contains: search, mode: 'insensitive' } } }, // Tìm theo tên phim
-            { host_user: { display_name: { contains: search, mode: 'insensitive' } } }, // Tìm theo tên hiển thị host
-            { host_user: { username: { contains: search, mode: 'insensitive' } } } // Tìm theo username host
+            { title: { contains: search, mode: 'insensitive' } },
+            { movie: { title: { contains: search, mode: 'insensitive' } } },
+            { host_user: { display_name: { contains: search, mode: 'insensitive' } } },
+            { host_user: { username: { contains: search, mode: 'insensitive' } } }
         ];
     }
 
     const rooms = await prisma.watchParty.findMany({
       where,
-     
       orderBy: filter === 'scheduled' ? { scheduled_at: 'asc' } : { created_at: 'desc' },
       include: {
         host_user: {
@@ -105,7 +130,8 @@ export const watchPartyService = {
 
     return rooms.map(room => {
       let displayTitle = room.movie?.title;
-      if (room.episode) {
+
+      if (room.episode && room.movie?.media_type === 'TV') {
         displayTitle += ` - S${room.episode.season.season_number}E${room.episode.episode_number}`;
         if (room.episode.title) displayTitle += `: ${room.episode.title}`;
       }
@@ -124,7 +150,7 @@ export const watchPartyService = {
         status: filter,
         scheduledAt: room.scheduled_at,
         endedAt: room.updated_at, 
-        episodeInfo: room.episode ? { 
+        episodeInfo: (room.episode && room.movie?.media_type === 'TV') ? { 
             season: room.episode.season.season_number,
             episode: room.episode.episode_number
         } : null
@@ -132,6 +158,7 @@ export const watchPartyService = {
     });
   },
 
+  // 3. ĐĂNG KÝ NHẬN THÔNG BÁO
   toggleReminder: async (userId: string, partyId: string) => {
     const existing = await prisma.watchPartyReminder.findUnique({
       where: {
@@ -150,6 +177,7 @@ export const watchPartyService = {
     }
   },
 
+  // 4. HỦY PHÒNG (Cho Scheduled)
   cancel: async (userId: string, partyId: string) => {
     const party = await prisma.watchParty.findUnique({
       where: { id: partyId }
@@ -170,6 +198,7 @@ export const watchPartyService = {
     });
   },
 
+  // 5. KẾT THÚC PHÒNG (Cho Live)
   end: async (userId: string, partyId: string) => {
     const party = await prisma.watchParty.findUnique({
       where: { id: partyId }
@@ -189,5 +218,59 @@ export const watchPartyService = {
         is_active: false,
       }
     });
+  },
+
+  // 6. LẤY CHI TIẾT PHÒNG (Để Join)
+  getDetails: async (partyId: string, userId: string) => {
+    const party = await prisma.watchParty.findUnique({
+        where: { id: partyId },
+        include: {
+            movie: { select: { title: true, poster_url: true, backdrop_url: true, description: true, release_date: true, movie_genres: { include: { genre: true } }, country: true } },
+            episode: { include: { season: true } },
+            host_user: { select: { id: true, username: true, display_name: true, avatar_url: true } },
+            
+            messages: {
+                take: 50, 
+                orderBy: { created_at: 'asc' },
+                include: { user: { select: { id: true, username: true, display_name: true, avatar_url: true } } }
+            }
+        }
+    });
+
+    if (!party) throw new Error("PARTY_NOT_FOUND");
+    if (!party.is_active) throw new Error("PARTY_ENDED");
+
+    const formattedMessages = party.messages.map((msg: any) => {
+        const isHidden = msg.is_flagged; 
+        
+        return {
+            id: msg.id,
+            text: isHidden ? "Tin nhắn đã bị ẩn do vi phạm tiêu chuẩn cộng đồng." : msg.message,
+            userId: msg.user_id,
+            user: msg.user.display_name || msg.user.username,
+            avatar: msg.user.avatar_url,
+            time: new Date(msg.created_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+            isHost: msg.user_id === party.host_user_id,
+            isSystem: isHidden 
+        };
+    });
+
+    return {
+        party,
+        messages: formattedMessages,
+        isHost: party.host_user_id === userId
+    };
+  },
+
+  joinByCode: async (code: string) => {
+      const party = await prisma.watchParty.findUnique({
+          where: { join_code: code.toUpperCase().trim() },
+          select: { id: true, is_active: true }
+      });
+
+      if (!party) throw new Error("INVALID_CODE");
+      if (!party.is_active) throw new Error("PARTY_ENDED");
+
+      return { roomId: party.id };
   }
 };

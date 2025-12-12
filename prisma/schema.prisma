@@ -384,6 +384,7 @@ model WatchPartyMember {
   joined_at DateTime @default(now())
   role      String   @default("participant") @db.VarChar(20) // 'host', 'participant'
   is_online Boolean  @default(true) 
+  is_banned Boolean  @default(false)
 
   party WatchParty @relation(fields: [party_id], references: [id], onDelete: Cascade)
   user  User       @relation(fields: [user_id], references: [id], onDelete: Cascade)
@@ -399,6 +400,9 @@ model WatchPartyMessage {
   is_spoiler Boolean  @default(false) 
   created_at DateTime @default(now())
   is_deleted Boolean  @default(false) 
+  is_flagged      Boolean  @default(false) 
+  flag_reason     String?
+  toxicity_score  Float?   @default(0)
 
   party WatchParty @relation(fields: [party_id], references: [id], onDelete: Cascade)
   user  User       @relation(fields: [user_id], references: [id], onDelete: Cascade)
