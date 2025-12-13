@@ -4,6 +4,7 @@ import { CreditType, Prisma, MediaType } from '@prisma/client';
 import { prisma } from "../lib/prisma";
 import { error } from 'console';
 import { movieService } from '../services/movie.service';
+import * as recommendationService from '../services/recommend.service';
 
 function createSlug(text: string) {
   return text
@@ -30,6 +31,41 @@ export const movieController = {
     } catch (error) {
       console.error(error);
       res.status(500).json({ error: 'Lỗi máy chủ khi lấy genres' });
+    }
+  },
+
+  getMovieById: async (req: Request, res: Response) => {
+    const { id } = req.params;
+    if (!id) {
+      return res.status(400).json({ error: "Thiếu ID phim" });
+    }
+    try {
+      const movie = await prisma.movie.findUnique({
+        where: { id },
+        include: {
+          country: true,
+          movie_genres: { include: { genre: true } },
+          movie_people: {
+            include: { person: true },
+            orderBy: { ordering: "asc" },
+          },
+          seasons: {
+            orderBy: { season_number: "asc" },
+            include: {
+              episodes: { orderBy: { episode_number: "asc" } },
+            },
+          },
+        },
+      });
+
+      if (!movie || movie.is_deleted) {
+        return res.status(404).json({ error: "Không tìm thấy phim" });
+      }
+
+      return res.status(200).json(movie);
+    } catch (error: any) {
+      console.error("getMovieById controller error:", error);
+      return res.status(500).json({ error: error.message || "Lỗi máy chủ" });
     }
   },
 
@@ -134,7 +170,12 @@ export const movieController = {
         return res.status(404).json({ error: "Không tìm thấy phim" });
       }
 
-      return res.json(movie);
+      const recommendations = await recommendationService.getSimilarMovies(movie.id);
+
+      return res.json({
+        ...movie,
+        recommendations: recommendations 
+      });
     } catch (error: any) {
       console.error("getMovieBySlug error:", error);
       return res.status(500).json({ error: "Lỗi máy chủ" });
