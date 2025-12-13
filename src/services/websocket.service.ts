@@ -229,7 +229,7 @@ export class WebSocketService {
               userId: userId,
               user: user?.name,
               avatar: user?.avatar,
-              time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+              time: savedMsg.created_at.toISOString(),
               isHost: false, 
               isFlagged: false
             });

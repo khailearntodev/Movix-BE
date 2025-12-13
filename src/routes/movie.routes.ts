@@ -3,7 +3,6 @@ import { movieController } from '../controllers/movie.controller';
 
 const router = Router();
 
-
 // ===  ROUTE TẠO PHIM (Cho ADMIN) ===
 // POST /api/movies
 router.post('/', movieController.createMovie);
@@ -12,48 +11,49 @@ router.post('/', movieController.createMovie);
 // GET /tbdb/tv/:tmdbId
 router.get('/tmdb/tv/:tmdbId', movieController.getTmdbTvDetails);
 
-// DELETE /api/movies/:id
-router.delete('/:id', movieController.deleteMovie);
-
-// PUT /api/movies/:id
-router.put('/:id', movieController.updateMovie);
-
-// === ROUTE FETCH TMDB MOVIE (CHO ADMIN) ===
-// GET /tmdb/tv/:tmdbId
-router.get('/tmdb/details/:tmdbId', movieController.getTmdbDetails);
-
 // GET /api/movies/genres (Lấy tất cả thể loại)
 router.get('/genres', movieController.getAllGenres);
 
 // GET /api/movies/countries (Lấy tất cả quốc gia)
 router.get('/countries', movieController.getAllCountries);
 
-// GET /api/movies/trending
-router.get('/trending', movieController.getTrendingMovies);
+// GET /api/movies/filter
+router.get('/filter', movieController.filterMovies);
 
 // GET /api/movies/search
 router.get('/search', movieController.search);
 
+// GET /tmdb/tv/:tmdbId
+router.get('/tmdb/details/:tmdbId', movieController.getTmdbDetails);
+
+// GET /api/movies/trending
+router.get('/trending', movieController.getTrendingMovies);
+
+// GET /api/movies/popular-shows
+router.get('/popular-shows', movieController.getTrendingShows);
+
+// DELETE /api/movies/:id
+router.delete('/:id', movieController.deleteMovie);
+
+// PUT /api/movies/:id
+router.put('/:id', movieController.updateMovie);
+
 // GET /api/movies/episodes/:id/play (id là episodeId)
 router.get('/episodes/:id/play', movieController.getEpisodePlaybackUrl);
 
-// GET /api/movies/filter
-router.get('/filter', movieController.filterMovies);
+// GET /api/movies/by-genre/id (id cua the laoij phim)
+router.get('/by-genre-landing/:id', movieController.getByGenreLanding);
+router.get('/by-genre/:genreId', movieController.getByGenreLanding);
 
 // GET /api/movies/popular-showstmdb
-router.get('/popular-showstmdb', movieController.getPopularShows);
-
-// GET /api/movies/by-genre/id (id cua the laoij phim)
-router.get('/by-genre/:genreId', movieController.getByGenre);
+router.get('/popular-showstmdb', movieController.getPopularShowsTMDB);
 
 // GET /api/movies/trendingtmdb    
-router.get('/trendingtmdb', movieController.getTrending);
-
-// GET /api/movies/tmdb/details/:tmdbId
-router.get('/tmdb/details/:tmdbId', movieController.getTmdbDetails);
+router.get('/trendingtmdb', movieController.getTrendingTMDB);
 
 // GET /api/movies/:slug/watch
 router.get('/:slug/watch', movieController.getPlaybackBySlug);
+
 // GET /api/movies/:slug
 router.get('/:slug', movieController.getMovieBySlug);
 

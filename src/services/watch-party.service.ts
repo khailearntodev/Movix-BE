@@ -231,6 +231,7 @@ export const watchPartyService = {
             
             messages: {
                 take: 50, 
+                where: { is_deleted: false, is_flagged: false },
                 orderBy: { created_at: 'asc' },
                 include: { user: { select: { id: true, username: true, display_name: true, avatar_url: true } } }
             }
@@ -241,17 +242,15 @@ export const watchPartyService = {
     if (!party.is_active) throw new Error("PARTY_ENDED");
 
     const formattedMessages = party.messages.map((msg: any) => {
-        const isHidden = msg.is_flagged; 
-        
         return {
             id: msg.id,
-            text: isHidden ? "Tin nhắn đã bị ẩn do vi phạm tiêu chuẩn cộng đồng." : msg.message,
+            text: msg.message, 
             userId: msg.user_id,
             user: msg.user.display_name || msg.user.username,
             avatar: msg.user.avatar_url,
-            time: new Date(msg.created_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+            time: msg.created_at.toISOString(), 
             isHost: msg.user_id === party.host_user_id,
-            isSystem: isHidden 
+            isSystem: false
         };
     });
 
