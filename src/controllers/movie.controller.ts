@@ -3,6 +3,7 @@ import * as tmdbService from '../services/tmdb.service';
 import { CreditType, Prisma, MediaType } from '@prisma/client';
 import { prisma } from "../lib/prisma";
 import { error } from 'console';
+import { movieService } from '../services/movie.service';
 import * as recommendationService from '../services/recommend.service';
 
 function createSlug(text: string) {
@@ -82,15 +83,20 @@ export const movieController = {
 
   getTrendingMovies: async (req: Request, res: Response) => {
     try {
-      const movies = await prisma.movie.findMany({
-        where: { is_active: true, is_deleted: false },
-        orderBy: { release_date: 'desc' },
-        take: 10
-      });
+      const movies = await movieService.getTrendingMovies();
       res.status(200).json(movies);
     } catch (error) {
       console.error(error);
       res.status(500).json({ error: 'Lỗi máy chủ' });
+    }
+  },
+
+  getTrendingShows: async (req: Request, res: Response) => {
+    try {
+      const shows = await movieService.getPopularShows();
+      res.status(200).json(shows);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
     }
   },
 
@@ -393,7 +399,7 @@ export const movieController = {
     }
   },
 
-  getTrending: async (req: Request, res: Response) => {
+  getTrendingTMDB: async (req: Request, res: Response) => {
     try {
       const movies = await tmdbService.getTrendingMovies();
       res.status(200).json(movies);
@@ -402,7 +408,7 @@ export const movieController = {
     }
   },
 
-  getPopularShows: async (req: Request, res: Response) => {
+  getPopularShowsTMDB: async (req: Request, res: Response) => {
     try {
       const shows = await tmdbService.getPopularTvShows();
       res.status(200).json(shows);
@@ -411,13 +417,14 @@ export const movieController = {
     }
   },
 
-  getByGenre: async (req: Request, res: Response) => {
+  getByGenreLanding: async (req: Request, res: Response) => {
     try {
-      const { genreId } = req.params;
+      const genreId = req.params.id || req.params.genreId;
       if (!genreId) {
         return res.status(400).json({ message: 'Genre ID là bắt buộc.' });
       }
-      const movies = await tmdbService.getMoviesByGenre(genreId);
+      //const movies = await tmdbService.getMoviesByGenre(genreId);
+      const movies = await movieService.getMoviesByGenre(genreId);
       res.status(200).json(movies);
     } catch (error: any) {
       res.status(500).json({ message: error.message });

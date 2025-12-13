@@ -21,6 +21,8 @@ import { WebSocketService } from './services/websocket.service';
 import { NotificationService } from './services/notification.service';
 import { setNotificationService } from './utils/notify/notification.helper';
 import notificationRoutes from './routes/notification.routes';
+import watchPartyRoutes from './routes/watch-party.routes';
+import { startCronJobs } from './services/cron.service';
 
 const app = express();
 const server = createServer(app);
@@ -57,6 +59,7 @@ app.use('/api/banners', bannerRoutes);
 app.use('/api/history', historyRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/watch-party', watchPartyRoutes);
 
 app.get('/api', (req, res) => {
   res.send('Movix BE is running!');
@@ -71,6 +74,8 @@ app.get('/api/websocket/status', (req, res) => {
     }
   });
 });
+
+startCronJobs();
 
 server.listen(port, () => {
   console.log(`Server running on port ${port}`);

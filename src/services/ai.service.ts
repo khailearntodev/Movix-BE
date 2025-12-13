@@ -45,7 +45,7 @@ export const chatWithAI = async (userMessage: string, userId?: string, isRaw: bo
   // 1. Lấy dữ liệu phim
   const availableMovies = await prisma.movie.findMany({
     where: { is_deleted: false, is_active: true },
-    take: 100,
+    take: 200,
     orderBy: { created_at: 'desc' },
     select: {
       title: true,
