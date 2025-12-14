@@ -849,4 +849,22 @@ export const movieController = {
       });
     }
   },
+  getRecommendationsForUser: async (req: Request, res: Response) => {
+    try {
+      const userId = req.userId; 
+      if (!userId) {
+        return res.status(401).json({ message: 'Bạn cần đăng nhập để nhận gợi ý.' });
+      }
+
+      const movies = await recommendationService.getPersonalizedRecommendations(userId);
+      
+      res.status(200).json({
+        message: 'Gợi ý phim dành cho bạn',
+        data: movies
+      });
+    } catch (error) {
+      console.error("Personal Recommendation Error:", error);
+      res.status(500).json({ message: 'Lỗi khi lấy danh sách gợi ý.' });
+    }
+  },
 }

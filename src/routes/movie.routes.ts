@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { movieController } from '../controllers/movie.controller'; 
+import { authenticateToken } from '../middlewares/auth.middleware';
 
 const router = Router();
 
@@ -51,6 +52,8 @@ router.get('/popular-showstmdb', movieController.getPopularShowsTMDB);
 // GET /api/movies/trendingtmdb    
 router.get('/trendingtmdb', movieController.getTrendingTMDB);
 
+router.get('/for-you', authenticateToken, movieController.getRecommendationsForUser);
+
 // GET /api/movies/by-id/:id (Lấy phim theo ID, tránh xung đột với slug)
 router.get('/by-id/:id', movieController.getMovieById);
 // GET /api/movies/:slug/watch
@@ -58,5 +61,6 @@ router.get('/:slug/watch', movieController.getPlaybackBySlug);
 
 // GET /api/movies/:slug
 router.get('/:slug', movieController.getMovieBySlug);
+
 
 export default router;
