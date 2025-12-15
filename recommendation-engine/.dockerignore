@@ -1,0 +1,18 @@
+# Bỏ qua các file cache của Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+
+# Bỏ qua file môi trường ảo (nếu có)
+venv
+.env
+
+# Bỏ qua các file model đã train (nếu bạn muốn container tự train lại hoặc mount volume)
+# Nếu bạn muốn nướng model vào image thì ĐỪNG bỏ qua 2 dòng dưới
+movie_index.faiss
+movie_metadata.pkl
+
+# Các file hệ thống
+.DS_Store
+Thumbs.db

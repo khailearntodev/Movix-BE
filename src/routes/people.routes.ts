@@ -4,10 +4,18 @@ import { personController } from '../controllers/people.controller';
 const router = Router();
 
 // GET /api/people
-// Query params: ?page=1&limit=20&q=Tom&role=actor
 router.get('/', personController.getAll);
 
-// GET /api/people/:id
+// Lấy chi tiết nhân sự theo ID
 router.get('/:id', personController.getDetail);
+
+// POST /api/people
+router.post('/', personController.create);
+
+// PUT /api/people/:id
+router.put('/:id', personController.update);
+
+// DELETE /api/people/:id
+router.delete('/:id', personController.delete);
 
 export default router;
