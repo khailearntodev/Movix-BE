@@ -1,6 +1,23 @@
 import { prisma } from '../lib/prisma';
 import { Prisma } from '@prisma/client';
 
+const checkDuplicate = async (name: string, birthday: string | Date | null, excludeId?: string) => {
+  const duplicate = await prisma.person.findFirst({
+    where: {
+      name: { 
+        equals: name.trim(), 
+        mode: 'insensitive'
+      },
+      birthday: birthday ? new Date(birthday) : null, 
+      id: excludeId ? { not: excludeId } : undefined,
+    },
+  });
+
+  if (duplicate) {
+    throw new Error(`Nhân sự "${name}" với ngày sinh này đã tồn tại trong hệ thống.`);
+  }
+};
+
 export const getAllPeople = async (
   page: number,
   limit: number,
@@ -99,6 +116,7 @@ export const getPersonDetail = async (id: string) => {
 };
 
 export const createPerson = async (data: Prisma.PersonCreateInput) => {
+  await checkDuplicate(data.name, data.birthday ?? null);
     return await prisma.person.create({
         data: {
             name: data.name,
@@ -116,6 +134,7 @@ export const updatePerson = async (id: string, data: Prisma.PersonUpdateInput) =
     if (!exists) {
         throw new Error('PERSON_NOT_FOUND');
     }
+    await checkDuplicate(data.name as string, data.birthday as string | Date | null ?? null, id);
 
     return await prisma.person.update({
         where: { id },
@@ -134,6 +153,14 @@ export const deletePerson = async (id: string) => {
     const exists = await prisma.person.findUnique({ where: { id } });
     if (!exists) {
         throw new Error('PERSON_NOT_FOUND');
+    }
+
+    const isLinked = await prisma.moviePerson.findFirst({
+      where: { person_id: id }, 
+    });
+
+    if (isLinked) {
+      throw new Error("Không thể xóa: Nhân sự này đang tham gia một hoặc nhiều bộ phim.");
     }
 
     try {

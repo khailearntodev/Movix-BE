@@ -689,6 +689,29 @@ export const movieController = {
 
     try {
       const result = await prisma.$transaction(async (tx) => {
+
+        let finalCountryId = data.country_id;
+            if (data.country && data.country.name) {
+                const countryName = data.country.name.trim();
+                    const dbCountry = await tx.country.findFirst({
+                    where: {
+                        name: {
+                            equals: countryName,
+                            mode: 'insensitive' 
+                        }
+                    }
+                });
+
+                if (dbCountry) {
+                    finalCountryId = dbCountry.id;
+                } else {
+                    const newCountry = await tx.country.create({
+                        data: { name: countryName }
+                    });
+                    finalCountryId = newCountry.id;
+                }
+            }
+
         const updatedMovie = await tx.movie.update({
           where: { id: id },
           data: {
@@ -701,7 +724,7 @@ export const movieController = {
             backdrop_url: data.backdrop_url,
             media_type: data.media_type,
             is_active: data.is_active,
-            country_id: data.country_id || (data.country ? data.country.id : null),
+            country_id: finalCountryId,
           },
         });
 
