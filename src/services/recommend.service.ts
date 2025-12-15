@@ -40,6 +40,21 @@ export const getSimilarMovies = async (movieId: string) => {
   }
 };
 
+const fullMovieInclude = {
+    country: true,
+    movie_genres: {
+        include: { genre: true }
+    },
+    seasons: {
+        orderBy: { season_number: 'asc' as const },
+        include: {
+            episodes: {
+                orderBy: { episode_number: 'asc' as const }
+            }
+        }
+    }
+};
+
 async function getMoviesFromIds(ids: string[]) {
   if (!ids.length) return [];
   
@@ -49,20 +64,15 @@ async function getMoviesFromIds(ids: string[]) {
       is_deleted: false,
       is_active: true
     },
-    select: {
-      id: true,
-      title: true,
-      slug: true,
-      poster_url: true,
-      release_date: true,
-    }
+    include: fullMovieInclude
   });
-
-  const sortedMovies = ids
+  return ids
     .map(id => movies.find(m => m.id === id))
-    .filter(Boolean); 
-
-  return sortedMovies;
+    .filter(Boolean)
+    .map(movie => ({
+        ...movie,
+        score: 0 
+    })); 
 }
 
 async function getFallbackMovies(movieId: string) {
@@ -91,3 +101,65 @@ async function getFallbackMovies(movieId: string) {
     }
   });
 }
+export const getPersonalizedRecommendations = async (userId: string, limit: number = 20) => {
+  const [recentHistory, favorites, highRatings] = await prisma.$transaction([
+    prisma.watchHistory.findMany({
+      where: { user_id: userId, is_deleted: false },
+      orderBy: { watched_at: 'desc' },
+      take: 5,
+      select: { episode: { select: { season: { select: { movie_id: true } } } } }
+    }),
+    prisma.favourite.findMany({
+      where: { user_id: userId },
+      orderBy: { created_at: 'desc' },
+      take: 5,
+      select: { movie_id: true }
+    }),
+    prisma.rating.findMany({
+      where: { user_id: userId, rating: { gte: 8 }, is_deleted: false },
+      orderBy: { created_at: 'desc' },
+      take: 5,
+      select: { movie_id: true }
+    })
+  ]);
+
+  const seedMovieIds = new Set<string>();
+  // @ts-ignore
+  recentHistory.forEach(h => { if(h.episode?.season?.movie_id) seedMovieIds.add(h.episode.season.movie_id); });
+  favorites.forEach(f => seedMovieIds.add(f.movie_id));
+  highRatings.forEach(r => seedMovieIds.add(r.movie_id));
+  if (seedMovieIds.size === 0) {
+    return prisma.movie.findMany({
+        where: { is_active: true, is_deleted: false },
+        orderBy: { release_date: 'desc' },
+        take: limit,
+        include: fullMovieInclude 
+    });
+  }
+  const selectedSeeds = Array.from(seedMovieIds).sort(() => 0.5 - Math.random()).slice(0, 5);
+
+  const recommendationPromises = selectedSeeds.map(id => getSimilarMovies(id));
+  const results = await Promise.all(recommendationPromises);
+
+
+  const recommendedMap = new Map<string, any>();
+  const excludeIds = new Set(seedMovieIds); 
+
+  results.flat().forEach(movie => {
+    // @ts-ignore
+    if (!movie || excludeIds.has(movie.id)) return;
+    
+    // @ts-ignore
+    if (recommendedMap.has(movie.id)) {
+      // @ts-ignore
+      const existing = recommendedMap.get(movie.id);
+      existing.score += 1; 
+    } else {
+      // @ts-ignore
+      recommendedMap.set(movie.id, { ...movie, score: 1 });
+    }
+  });
+  return Array.from(recommendedMap.values())
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit);
+};
