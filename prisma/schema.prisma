@@ -57,22 +57,22 @@ model User {
   verificationExpires DateTime?
 
   // Relations
-  role                 Role?              @relation(fields: [role_id], references: [id], onDelete: SetNull)
-  refreshTokens        RefreshToken[]
-  password_resets      PasswordReset[]
-  ratings              Rating[]
-  comments             Comment[]
-  watch_history        WatchHistory[]
-  favourites           Favourite[]
-  playlists            Playlist[]
-  notifications        Notification[]
-  chatbot_logs         ChatbotLog[]
-  hosted_watch_parties WatchParty[]       @relation("HostUser")
-  watch_party_members  WatchPartyMember[]
-  user_flag_logs       UserFlagLog[]      @relation("FlaggedUser")
-  admin_flag_logs      UserFlagLog[]      @relation("AdminUser")
-  push_subscriptions   PushSubscription[]
-  watch_party_messages WatchPartyMessage[]
+  role                  Role?                @relation(fields: [role_id], references: [id], onDelete: SetNull)
+  refreshTokens         RefreshToken[]
+  password_resets       PasswordReset[]
+  ratings               Rating[]
+  comments              Comment[]
+  watch_history         WatchHistory[]
+  favourites            Favourite[]
+  playlists             Playlist[]
+  notifications         Notification[]
+  chatbot_logs          ChatbotLog[]
+  hosted_watch_parties  WatchParty[]         @relation("HostUser")
+  watch_party_members   WatchPartyMember[]
+  user_flag_logs        UserFlagLog[]        @relation("FlaggedUser")
+  admin_flag_logs       UserFlagLog[]        @relation("AdminUser")
+  push_subscriptions    PushSubscription[]
+  watch_party_messages  WatchPartyMessage[]
   watch_party_reminders WatchPartyReminder[]
 }
 
@@ -123,6 +123,7 @@ model Movie {
   watch_parties   WatchParty[]
   section_links   SectionMovieLink[]
   recommendation  MovieRecommendation?
+  banners         Banner[]
 
   @@unique([tmdb_id, media_type])
   @@map("movies")
@@ -345,45 +346,47 @@ model Banner {
   title      String
   image_url  String?
   link_url   String?
+  movie_id   String?  @db.Uuid
   is_active  Boolean  @default(true)
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
   is_deleted Boolean  @default(false)
+
+  movie Movie? @relation(fields: [movie_id], references: [id], onDelete: SetNull)
 }
 
 model WatchParty {
-  id           String    @id @default(uuid()) @db.Uuid
-  host_user_id String    @db.Uuid
-  movie_id     String?   @db.Uuid
-  episode_id   String?   @db.Uuid
-  title        String?   @db.VarChar(200) 
-  is_private   Boolean   @default(false)
-  join_code    String?   @unique @db.VarChar(10) 
-  started_at   DateTime?
-  is_active    Boolean   @default(true)
-  created_at   DateTime  @default(now())
-  updated_at   DateTime  @updatedAt
-  scheduled_at DateTime?
-  is_30m_notified   Boolean   @default(false) 
+  id                String    @id @default(uuid()) @db.Uuid
+  host_user_id      String    @db.Uuid
+  movie_id          String?   @db.Uuid
+  episode_id        String?   @db.Uuid
+  title             String?   @db.VarChar(200)
+  is_private        Boolean   @default(false)
+  join_code         String?   @unique @db.VarChar(10)
+  started_at        DateTime?
+  is_active         Boolean   @default(true)
+  created_at        DateTime  @default(now())
+  updated_at        DateTime  @updatedAt
+  scheduled_at      DateTime?
+  is_30m_notified   Boolean   @default(false)
   is_start_notified Boolean   @default(false)
 
-
-  host_user User               @relation("HostUser", fields: [host_user_id], references: [id], onDelete: Cascade)
-  movie     Movie?             @relation(fields: [movie_id], references: [id], onDelete: SetNull)
-  episode   Episode?           @relation(fields: [episode_id], references: [id], onDelete: SetNull)
+  host_user User                 @relation("HostUser", fields: [host_user_id], references: [id], onDelete: Cascade)
+  movie     Movie?               @relation(fields: [movie_id], references: [id], onDelete: SetNull)
+  episode   Episode?             @relation(fields: [episode_id], references: [id], onDelete: SetNull)
   members   WatchPartyMember[]
-  messages  WatchPartyMessage[] 
-  reminders   WatchPartyReminder[]
+  messages  WatchPartyMessage[]
+  reminders WatchPartyReminder[]
 }
 
 model WatchPartyReminder {
-  id          String   @id @default(uuid()) @db.Uuid
-  party_id    String   @db.Uuid
-  user_id     String   @db.Uuid
-  created_at  DateTime @default(now())
+  id         String   @id @default(uuid()) @db.Uuid
+  party_id   String   @db.Uuid
+  user_id    String   @db.Uuid
+  created_at DateTime @default(now())
 
-  party       WatchParty @relation(fields: [party_id], references: [id], onDelete: Cascade)
-  user        User       @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  party WatchParty @relation(fields: [party_id], references: [id], onDelete: Cascade)
+  user  User       @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@unique([party_id, user_id])
 }
@@ -394,7 +397,7 @@ model WatchPartyMember {
   user_id   String   @db.Uuid
   joined_at DateTime @default(now())
   role      String   @default("participant") @db.VarChar(20) // 'host', 'participant'
-  is_online Boolean  @default(true) 
+  is_online Boolean  @default(true)
   is_banned Boolean  @default(false)
 
   party WatchParty @relation(fields: [party_id], references: [id], onDelete: Cascade)
@@ -404,16 +407,16 @@ model WatchPartyMember {
 }
 
 model WatchPartyMessage {
-  id         String   @id @default(uuid()) @db.Uuid
-  party_id   String   @db.Uuid
-  user_id    String   @db.Uuid
-  message    String   @db.Text
-  is_spoiler Boolean  @default(false) 
-  created_at DateTime @default(now())
-  is_deleted Boolean  @default(false) 
-  is_flagged      Boolean  @default(false) 
-  flag_reason     String?
-  toxicity_score  Float?   @default(0)
+  id             String   @id @default(uuid()) @db.Uuid
+  party_id       String   @db.Uuid
+  user_id        String   @db.Uuid
+  message        String   @db.Text
+  is_spoiler     Boolean  @default(false)
+  created_at     DateTime @default(now())
+  is_deleted     Boolean  @default(false)
+  is_flagged     Boolean  @default(false)
+  flag_reason    String?
+  toxicity_score Float?   @default(0)
 
   party WatchParty @relation(fields: [party_id], references: [id], onDelete: Cascade)
   user  User       @relation(fields: [user_id], references: [id], onDelete: Cascade)
