@@ -7,6 +7,7 @@ export const bannerController = {
       const banners = await prisma.banner.findMany({
         where: { is_deleted: false },
         orderBy: { created_at: 'desc' },
+        include: { movie: true },
       });
       res.json(banners);
     } catch (error) {
@@ -16,10 +17,18 @@ export const bannerController = {
 
   create: async (req: Request, res: Response) => {
     try {
-      const { title, image_url, link_url, is_active } = req.body;
+      const { title, image_url, link_url, is_active, movie_id } = req.body;
 
       if (!title || !image_url) {
         return res.status(400).json({ message: 'Thiếu tiêu đề hoặc ảnh banner' });
+      }
+
+      // If linking to a movie, validate existence
+      if (movie_id) {
+        const movie = await prisma.movie.findUnique({ where: { id: movie_id } });
+        if (!movie || movie.is_deleted) {
+          return res.status(404).json({ message: 'Phim liên kết không tồn tại' });
+        }
       }
 
       const banner = await prisma.banner.create({
@@ -27,8 +36,10 @@ export const bannerController = {
           title,
           image_url,
           link_url,
+          movie_id,
           is_active: is_active ?? true,
         },
+        include: { movie: true },
       });
       res.status(201).json(banner);
     } catch (error) {
@@ -62,6 +73,7 @@ export const bannerController = {
       const updated = await prisma.banner.update({
         where: { id },
         data: { is_active: !banner.is_active },
+        include: { movie: true },
       });
       
       res.json(updated);
