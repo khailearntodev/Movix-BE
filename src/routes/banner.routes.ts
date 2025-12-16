@@ -10,6 +10,7 @@ router.get('/', bannerController.getAll);
 router.use(authenticateToken);
 
 router.post('/', bannerController.create);
+router.put('/:id', bannerController.update);
 router.delete('/:id', bannerController.delete);
 router.put('/:id/active', bannerController.toggleActive);
 
