@@ -48,6 +48,42 @@ export const bannerController = {
     }
   },
 
+  update: async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { title, image_url, link_url, is_active, movie_id } = req.body;
+
+      const existingBanner = await prisma.banner.findUnique({ where: { id } });
+      if (!existingBanner) {
+        return res.status(404).json({ message: 'Banner không tồn tại' });
+      }
+
+      if (movie_id) {
+        const movie = await prisma.movie.findUnique({ where: { id: movie_id } });
+        if (!movie || movie.is_deleted) {
+          return res.status(404).json({ message: 'Phim liên kết không tồn tại' });
+        }
+      }
+
+      const updatedBanner = await prisma.banner.update({
+        where: { id },
+        data: {
+          title,
+          image_url,
+          link_url,
+          movie_id: movie_id || null, 
+          is_active,
+        },
+        include: { movie: true },
+      });
+
+      res.json(updatedBanner);
+    } catch (error: any) {
+      console.error("Lỗi UPDATE banner:", error);
+      res.status(500).json({ message: 'Lỗi cập nhật banner', error: error.message });
+    }
+  },
+
   delete: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
