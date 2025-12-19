@@ -163,3 +163,13 @@ export const getPersonalizedRecommendations = async (userId: string, limit: numb
     .sort((a, b) => b.score - a.score)
     .slice(0, limit);
 };
+
+export const triggerTraining = async () => {
+  try {
+    const response = await axios.post(`${AI_URL}/train`);
+    return response.data;
+  } catch (error) {
+    console.error("AI Service Training Error:", error);
+    throw error;
+  }
+};
