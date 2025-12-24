@@ -138,6 +138,8 @@ export const getTmdbMovieDetails = async (tmdbId: string) => {
       poster_url: getMovieImageUrl(data.poster_path, "poster"),
       backdrop_url: getMovieImageUrl(data.backdrop_path, "backdrop"),
       production_country: countryName, 
+      vote_average: data.vote_average,
+      vote_count: data.vote_count,
       genres: data.genres, 
       cast: castFull,
       director: directorFull,
@@ -223,6 +225,8 @@ export const getTmdbTvShowDetails = async (tmdbId: string) => {
       director: directorFull,
       runtime: data.episode_run_time && data.episode_run_time.length > 0 ? data.episode_run_time[0] : null,
       number_of_seasons: data.number_of_seasons, 
+      vote_average: data.vote_average,
+      vote_count: data.vote_count,
       trailer_url: trailerUrl,
     };
     

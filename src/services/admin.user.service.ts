@@ -30,16 +30,17 @@ export const getAllUsers = async (
   if (sortBy === 'nameAsc') orderBy = { display_name: 'asc' };
   if (sortBy === 'nameDesc') orderBy = { display_name: 'desc' };
 
-  const [users, total] = await prisma.$transaction([
-    prisma.user.findMany({
+  const [users, total] = await prisma.$transaction(async (tx) => {
+    const users = await tx.user.findMany({
       where,
       skip,
       take,
       orderBy,
       include: { role: true }, 
-    }),
-    prisma.user.count({ where }),
-  ]);
+    });
+    const total = await tx.user.count({ where });
+    return [users, total];
+  }, { timeout: 20000 });
 
   return {
     data: users,
@@ -76,6 +77,11 @@ export const getUserDetails = async (userId: string) => {
 };
 
 export const updateUserStatus = async (userId: string, status: UserStatus) => {
+  if (status === 'locked') {
+    await prisma.refreshToken.deleteMany({
+      where: { userId },
+    });
+  }
   return prisma.user.update({
     where: { id: userId },
     data: { status }

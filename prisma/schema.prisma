@@ -110,6 +110,8 @@ model Movie {
   created_at     DateTime  @default(now())
   updated_at     DateTime  @updatedAt
   is_deleted     Boolean   @default(false)
+  vote_average  Float?    @default(0)
+  vote_count    Int?    @default(0)
 
   // Relations
   country         Country?             @relation(fields: [country_id], references: [id], onDelete: SetNull)
@@ -245,6 +247,7 @@ model Episode {
   episode_number Int
   title          String?  @db.VarChar(300)
   runtime        Int?
+  video_image_url String?
   video_url      String?
   created_at     DateTime @default(now())
   updated_at     DateTime @updatedAt

@@ -147,6 +147,9 @@ export const login = async (email: string, password: string) => {
   }
 
   // 2. Kiểm tra trạng thái
+  if (user.status === 'locked') {
+    throw new Error('ACCOUNT_LOCKED');
+  }
   if (user.status !== 'active') {
     throw new Error('EMAIL_NOT_VERIFIED');
   }

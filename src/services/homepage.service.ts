@@ -88,16 +88,26 @@ export const homepageService = {
         data: { display_order: item.order },
       })
     );
-    return prisma.$transaction(transaction);
+    return prisma.$transaction(async (tx) => {
+      const promises = items.map((item) =>
+        tx.homepageSection.update({
+          where: { id: item.id },
+          data: { display_order: item.order },
+        })
+      );
+      return Promise.all(promises);
+    }, { timeout: 20000 });
   },
 
   reorderMovies: async (items: { id: string; order: number }[]) => {
-    const transaction = items.map((item) =>
-      prisma.sectionMovieLink.update({
-        where: { id: item.id },
-        data: { display_order: item.order },
-      })
-    );
-    return prisma.$transaction(transaction);
+    return prisma.$transaction(async (tx) => {
+      const promises = items.map((item) =>
+        tx.sectionMovieLink.update({
+          where: { id: item.id },
+          data: { display_order: item.order },
+        })
+      );
+      return Promise.all(promises);
+    }, { timeout: 20000 });
   }
 };

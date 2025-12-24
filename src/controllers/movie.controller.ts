@@ -5,6 +5,7 @@ import { prisma } from "../lib/prisma";
 import { error } from 'console';
 import { movieService } from '../services/movie.service';
 import * as recommendationService from '../services/recommend.service';
+import { getMovieImageUrl } from '../lib/tmdb.helpers';
 
 function createSlug(text: string) {
   return text
@@ -358,9 +359,9 @@ export const movieController = {
         }
       }
 
-      const [totalMovies, movies] = await prisma.$transaction([
-        prisma.movie.count({ where }),
-        prisma.movie.findMany({
+      const [totalMovies, movies] = await prisma.$transaction(async (tx) => {
+        const total = await tx.movie.count({ where });
+        const movies = await tx.movie.findMany({
           where,
           include: {
             country: true,
@@ -380,8 +381,9 @@ export const movieController = {
           },
           take: takeNum,
           skip: skip,
-        })
-      ]);
+        });
+        return [total, movies];
+      }, { timeout: 20000 });
 
       res.status(200).json({
         data: movies,
@@ -476,6 +478,7 @@ export const movieController = {
       selectedGenres,
       selectedMovieType,
       tmdb_id, 
+      vote_average,
       trailerUrl,
       // Step 2
       singleMovieFile,
@@ -516,6 +519,7 @@ export const movieController = {
             trailer_url: trailerUrl,
             backdrop_url: backdropUrl,
             country_id: country.id,
+            vote_average: vote_average ? parseFloat(vote_average) : 0,
             is_active: true,
             is_deleted: false,
           },
@@ -591,6 +595,9 @@ export const movieController = {
 
         // --- 5. Xử lý Tập phim (Episodes/Seasons) ---
         if (selectedMovieType === 'series' && seasons && Array.isArray(seasons) && seasons.length > 0) {
+          if (seasons[0] && (seasons[0] as any).episodes && (seasons[0] as any).episodes.length > 0) {
+             console.log("DEBUG EPISODE DATA:", JSON.stringify((seasons[0] as any).episodes[0], null, 2));
+          }
           // --- PHIM BỘ ---
           for (const [seasonIndex, season] of seasons.entries()) {
             const newSeason = await tx.season.create({
@@ -604,13 +611,18 @@ export const movieController = {
             if ((season as any).episodes && Array.isArray((season as any).episodes)) {
               const validEpisodes = (season as any).episodes
                 .filter((ep: any) => ep.title && ep.fileName)
-                .map((ep: any, epIndex: number) => ({
-                  season_id: newSeason.id,
-                  episode_number: epIndex + 1,
-                  title: ep.title,
-                  video_url: ep.fileName,
-                  runtime: ep.duration,
-                }));
+                .map((ep: any, epIndex: number) => {
+                    if (epIndex === 0) console.log("DEBUG EPISODE OBJECT KEYS:", Object.keys(ep));
+                    const rawImage = ep.stillUrl || ep.still_path || ep.imageUrl || ep.image || ep.video_image_url || ep.thumbnail || ep.thumb || ep.img || ep.preview || null;
+                    return {
+                        season_id: newSeason.id,
+                        episode_number: epIndex + 1,
+                        title: ep.title,
+                        video_url: ep.fileName,
+                        runtime: ep.duration,
+                        video_image_url: rawImage ? getMovieImageUrl(rawImage, 'backdrop') : null,
+                    };
+                });
 
               if (validEpisodes.length > 0) {
                 await tx.episode.createMany({
@@ -641,7 +653,7 @@ export const movieController = {
           });
         }
         return newMovie;
-      });
+      }, { maxWait: 5000, timeout: 20000 });
       res.status(201).json({
         message: "Tạo phim thành công!",
         data: result
@@ -725,6 +737,7 @@ export const movieController = {
             media_type: data.media_type,
             is_active: data.is_active,
             country_id: finalCountryId,
+            vote_average: data.vote_average ? parseFloat(data.vote_average) : undefined,
           },
         });
 
@@ -830,6 +843,9 @@ export const movieController = {
         }
 
         if (data.seasons && Array.isArray(data.seasons)) {
+            if (data.seasons[0] && data.seasons[0].episodes && data.seasons[0].episodes.length > 0) {
+                console.log("DEBUG UPDATE EPISODE DATA:", JSON.stringify(data.seasons[0].episodes[0], null, 2));
+            }
             for (const [seasonIndex, season] of data.seasons.entries()) {
                 const newSeason = await tx.season.create({
                     data: {
@@ -841,13 +857,18 @@ export const movieController = {
                 
                 if (season.episodes && Array.isArray(season.episodes)) {
                     const validEpisodes = season.episodes
-                        .map((ep: any, epIndex: number) => ({
-                            season_id: newSeason.id, 
-                            episode_number: ep.episode_number || epIndex + 1,
-                            title: ep.title,
-                            video_url: ep.video_url,
-                            runtime: ep.runtime ? parseInt(ep.runtime) : 0, 
-                        }));
+                        .map((ep: any, epIndex: number) => {
+                            if (epIndex === 0) console.log("DEBUG UPDATE EPISODE OBJECT KEYS:", Object.keys(ep));
+                            const rawImage = ep.video_image_url || ep.stillUrl || ep.still_path || ep.imageUrl || ep.image || ep.thumbnail || ep.thumb || ep.img || ep.preview || null;
+                            return {
+                                season_id: newSeason.id, 
+                                episode_number: ep.episode_number || epIndex + 1,
+                                title: ep.title,
+                                video_url: ep.video_url,
+                                runtime: ep.runtime ? parseInt(ep.runtime) : 0, 
+                                video_image_url: rawImage ? getMovieImageUrl(rawImage, 'backdrop') : null,
+                            };
+                        });
 
                     if (validEpisodes.length > 0) {
                         await tx.episode.createMany({
@@ -858,7 +879,7 @@ export const movieController = {
             }
         }
         return updatedMovie;
-      });
+      }, { maxWait: 5000, timeout: 20000 });
 
       res.status(200).json({ 
         message: "Cập nhật phim thành công!", 

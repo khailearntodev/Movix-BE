@@ -39,17 +39,15 @@ export const login = async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
     const authResponse: any = await authService.login(email, password);
-    // 1. TRÍCH XUẤT TOKEN & USER DATA
     const { accessToken, refreshToken, ...userData } = authResponse;
 
     res.cookie('accessToken', accessToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
-        maxAge: 15 * 60 * 1000, //15 phuts
+        maxAge: 15 * 60 * 1000, 
     });
 
-    // 3. THIẾT LẬP REFRESH TOKEN (7 ngày)
     res.cookie('refreshToken', refreshToken, {
         httpOnly: true, 
         secure: process.env.NODE_ENV === 'production',
@@ -68,8 +66,14 @@ export const login = async (req: Request, res: Response) => {
         message: 'Email chưa được xác thực. Vui lòng xác minh tài khoản.' 
       });
     }
+    if (error.message === 'ACCOUNT_LOCKED') {
+      return res.status(403).json({ 
+        code: 'ACCOUNT_LOCKED', 
+        message: 'Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên.' 
+      });
+    }
     if (error.message === 'INVALID_CREDENTIALS') {
-      return res.status(401).json({ message: 'Email hoặc mật khẩu không đúng.' });
+      return res.status(400).json({ message: 'Email hoặc mật khẩu không đúng.' });
     }
     res.status(500).json({ message: 'Lỗi máy chủ nội bộ.' });
   }

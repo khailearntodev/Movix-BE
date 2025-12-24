@@ -102,26 +102,27 @@ async function getFallbackMovies(movieId: string) {
   });
 }
 export const getPersonalizedRecommendations = async (userId: string, limit: number = 20) => {
-  const [recentHistory, favorites, highRatings] = await prisma.$transaction([
-    prisma.watchHistory.findMany({
+  const [recentHistory, favorites, highRatings] = await prisma.$transaction(async (tx) => {
+    const recentHistory = await tx.watchHistory.findMany({
       where: { user_id: userId, is_deleted: false },
       orderBy: { watched_at: 'desc' },
       take: 5,
       select: { episode: { select: { season: { select: { movie_id: true } } } } }
-    }),
-    prisma.favourite.findMany({
+    });
+    const favorites = await tx.favourite.findMany({
       where: { user_id: userId },
       orderBy: { created_at: 'desc' },
       take: 5,
       select: { movie_id: true }
-    }),
-    prisma.rating.findMany({
+    });
+    const highRatings = await tx.rating.findMany({
       where: { user_id: userId, rating: { gte: 8 }, is_deleted: false },
       orderBy: { created_at: 'desc' },
       take: 5,
       select: { movie_id: true }
-    })
-  ]);
+    });
+    return [recentHistory, favorites, highRatings];
+  }, { timeout: 20000 });
 
   const seedMovieIds = new Set<string>();
   // @ts-ignore
