@@ -39,8 +39,8 @@ export const getAllComments = async (
     AND: andConditions
   };
 
-  const [comments, total] = await prisma.$transaction([
-    prisma.comment.findMany({
+  const [comments, total] = await prisma.$transaction(async (tx) => {
+    const comments = await tx.comment.findMany({
       where,
       skip,
       take,
@@ -58,9 +58,10 @@ export const getAllComments = async (
             }
         }
       },
-    }),
-    prisma.comment.count({ where }),
-  ]);
+    });
+    const total = await tx.comment.count({ where });
+    return [comments, total];
+  }, { timeout: 20000 });
 
   return {
     data: comments,

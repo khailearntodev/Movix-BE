@@ -175,7 +175,7 @@ export const searchMoviesByVoice = async (audioBuffer: Buffer, mimeType: string)
   `;
 
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" }); 
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" }); 
 
     const imagePart = fileToGenerativePart(audioBuffer, mimeType);
     const result = await model.generateContent([promptText, imagePart]);

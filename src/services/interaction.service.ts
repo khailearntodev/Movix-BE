@@ -115,12 +115,24 @@ export const addMovieToPlaylist = async (
   });
 };
 export const getPlaylistDetail = async (userId: string, playlistId: string) => {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    include: { role: true }
+  });
+
+  const isAdmin = user?.role?.name === 'Admin';
+
+  const whereClause: any = {
+    id: playlistId,
+    is_deleted: false
+  };
+
+  if (!isAdmin) {
+    whereClause.user_id = userId;
+  }
+
   const playlist = await prisma.playlist.findFirst({
-    where: { 
-      id: playlistId, 
-      user_id: userId,
-      is_deleted: false
-    },
+    where: whereClause,
     include: {
       playlist_movies: {
         where: { is_deleted: false },
@@ -246,8 +258,8 @@ export const getMovieRatingStats = async (movieId: string) => {
 export const getMovieRatings = async (movieId: string, page: number = 1, limit: number = 10) => {
   const skip = (page - 1) * limit;
 
-  const [ratings, total] = await prisma.$transaction([
-    prisma.rating.findMany({
+  const [ratings, total] = await prisma.$transaction(async (tx) => {
+    const ratings = await tx.rating.findMany({
       where: {
         movie_id: movieId,
         is_deleted: false,
@@ -267,14 +279,15 @@ export const getMovieRatings = async (movieId: string, page: number = 1, limit: 
       },
       skip,
       take: limit,
-    }),
-    prisma.rating.count({
+    });
+    const total = await tx.rating.count({
       where: {
         movie_id: movieId,
         is_deleted: false,
       },
-    }),
-  ]);
+    });
+    return [ratings, total];
+  }, { timeout: 20000 });
 
   return {
     data: ratings,

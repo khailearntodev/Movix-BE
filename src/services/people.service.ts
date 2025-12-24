@@ -44,9 +44,9 @@ export const getAllPeople = async (
     };
   }
 
-  const [total, people] = await prisma.$transaction([
-    prisma.person.count({ where }),
-    prisma.person.findMany({
+  const [total, people] = await prisma.$transaction(async (tx) => {
+    const total = await tx.person.count({ where });
+    const people = await tx.person.findMany({
       where,
       skip,
       take: limit,
@@ -56,8 +56,9 @@ export const getAllPeople = async (
           select: { movie_people: true },
         },
       },
-    }),
-  ]);
+    });
+    return [total, people];
+  }, { timeout: 20000 });
 
   return {
     data: people,

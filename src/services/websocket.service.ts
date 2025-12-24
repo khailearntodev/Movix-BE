@@ -352,11 +352,11 @@ export class WebSocketService {
         if (!(await this.verifyHost(roomId, currentHostId))) return;
 
         try {
-            await this.prisma.$transaction([
-                this.prisma.watchParty.update({ where: { id: roomId }, data: { host_user_id: newHostId } }),
-                this.prisma.watchPartyMember.update({ where: { party_id_user_id: { party_id: roomId, user_id: currentHostId } }, data: { role: 'participant' } }),
-                this.prisma.watchPartyMember.update({ where: { party_id_user_id: { party_id: roomId, user_id: newHostId } }, data: { role: 'host' } })
-            ]);
+            await this.prisma.$transaction(async (tx) => {
+                await tx.watchParty.update({ where: { id: roomId }, data: { host_user_id: newHostId } });
+                await tx.watchPartyMember.update({ where: { party_id_user_id: { party_id: roomId, user_id: currentHostId } }, data: { role: 'participant' } });
+                await tx.watchPartyMember.update({ where: { party_id_user_id: { party_id: roomId, user_id: newHostId } }, data: { role: 'host' } });
+            }, { timeout: 20000 });
 
             this.io.to(roomId).emit('wp:host_transferred', { newHostId });
             

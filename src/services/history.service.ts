@@ -30,9 +30,9 @@ export const upsertWatchHistory = async (
 export const getWatchHistory = async (userId: string, page = 1, limit = 10) => {
   const skip = (page - 1) * limit;
   
-  const [total, history] = await prisma.$transaction([
-    prisma.watchHistory.count({ where: { user_id: userId, is_deleted: false } }),
-    prisma.watchHistory.findMany({
+  const [total, history] = await prisma.$transaction(async (tx) => {
+    const total = await tx.watchHistory.count({ where: { user_id: userId, is_deleted: false } });
+    const history = await tx.watchHistory.findMany({
       where: { user_id: userId, is_deleted: false },
       orderBy: { watched_at: 'desc' },
       skip,
@@ -55,8 +55,9 @@ export const getWatchHistory = async (userId: string, page = 1, limit = 10) => {
           }
         }
       }
-    })
-  ]);
+    });
+    return [total, history];
+  }, { timeout: 20000 });
 
   return {
     data: history,
