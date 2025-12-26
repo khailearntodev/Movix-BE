@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import * as aiService from '../services/ai.service';
+import { searchMoviesByImage } from '../services/ai.service';
 
 export const chat = async (req: Request, res: Response) => {
   try {
@@ -43,5 +44,24 @@ export const searchMoviesVoice = async (req: Request, res: Response) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Lỗi xử lý tìm kiếm giọng nói" });
+  }
+};
+
+export const searchImage = async (req: Request, res: Response) => {
+  try {
+    const file = req.file;
+    if (!file) {
+      return res.status(400).json({ message: "Vui lòng upload hình ảnh" });
+    }
+
+    const results = await searchMoviesByImage(file.buffer, file.mimetype);
+    
+    return res.status(200).json({ 
+      message: "Tìm kiếm thành công", 
+      data: results 
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Lỗi server khi tìm kiếm bằng ảnh" });
   }
 };

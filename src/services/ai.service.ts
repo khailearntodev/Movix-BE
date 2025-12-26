@@ -196,3 +196,56 @@ export const searchMoviesByVoice = async (audioBuffer: Buffer, mimeType: string)
     return [];
   }
 };
+
+export const searchMoviesByImage = async (imageBuffer: Buffer, mimeType: string) => {
+  // 1. Lấy dữ liệu phim (giống logic voice search để tạo context)
+  const movies = await prisma.movie.findMany({
+    where: { is_deleted: false, is_active: true },
+    select: {
+      id: true,
+      title: true,
+      description: true,
+      movie_genres: { select: { genre: { select: { name: true } } } }
+    }
+  });
+
+  // 2. Tạo context dạng chuỗi
+  const moviesContext = movies.map(m => 
+    `ID:${m.id}|Tên:${m.title}|Mô tả:${m.description}|Thể loại:${m.movie_genres.map(g => g.genre.name).join(",")}`
+  ).join("\n");
+
+  const promptText = `
+    Dưới đây là danh sách phim trong cơ sở dữ liệu:
+    ${moviesContext}
+
+    Hãy phân tích hình ảnh được gửi kèm (đây có thể là Poster phim, một cảnh trong phim, hoặc diễn viên trong phim).
+    Nhiệm vụ:
+    1. Xác định xem hình ảnh này thuộc về bộ phim nào trong danh sách trên.
+    2. Nếu hình ảnh là Poster hoặc cảnh đặc trưng, hãy tìm phim khớp nhất.
+    3. CHỈ TRẢ VỀ JSON Mảng ID các phim tìm được: ["id1", "id2"]. 
+    4. Nếu không tìm thấy sự liên quan nào, trả về []. Không giải thích thêm.
+  `;
+
+  try {
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" }); 
+
+    const imagePart = fileToGenerativePart(imageBuffer, mimeType);
+    
+    const result = await model.generateContent([promptText, imagePart]);
+    const responseText = result.response.text();
+
+    const cleanedText = responseText.replace(/```json/g, "").replace(/```/g, "").trim();
+    const movieIds = JSON.parse(cleanedText);
+
+    if (!Array.isArray(movieIds) || movieIds.length === 0) return [];
+
+    return await prisma.movie.findMany({
+      where: { id: { in: movieIds } },
+      include: { movie_genres: { include: { genre: true } } }
+    });
+
+  } catch (error) {
+    console.error("AI Image Search Error:", error);
+    return [];
+  }
+};
