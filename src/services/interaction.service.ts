@@ -187,7 +187,7 @@ export const upsertRating = async (userId: string, movieId: string, ratingValue:
     throw new Error('INVALID_RATING_VALUE');
   }
 
-  return prisma.rating.upsert({
+  const result = await prisma.rating.upsert({
     where: {
       user_id_movie_id: {
         user_id: userId,
@@ -205,6 +205,17 @@ export const upsertRating = async (userId: string, movieId: string, ratingValue:
       rating: ratingValue,
     },
   });
+
+  const stats = await getMovieRatingStats(movieId);
+  await prisma.movie.update({
+    where: { id: movieId },
+    data: {
+      vote_average: stats.average,
+      vote_count: stats.count,
+    },
+  });
+
+  return result;
 };
 
 export const getUserRating = async (userId: string, movieId: string) => {
@@ -222,7 +233,7 @@ export const getUserRating = async (userId: string, movieId: string) => {
                             
 export const deleteRating = async (userId: string, movieId: string) => {
   try {
-    return await prisma.rating.update({
+    const result = await prisma.rating.update({
       where: {
         user_id_movie_id: {
           user_id: userId,
@@ -231,6 +242,17 @@ export const deleteRating = async (userId: string, movieId: string) => {
       },
       data: { is_deleted: true },
     });
+
+    const stats = await getMovieRatingStats(movieId);
+    await prisma.movie.update({
+      where: { id: movieId },
+      data: {
+        vote_average: stats.average,
+        vote_count: stats.count,
+      },
+    });
+
+    return result;
   } catch (error) {
     throw new Error('RATING_NOT_FOUND');
   }

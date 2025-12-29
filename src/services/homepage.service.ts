@@ -20,7 +20,8 @@ export const homepageService = {
                 description: true,
                 release_date: true,
                 media_type: true,
-                metadata: true,   
+                metadata: true,
+                view_count: true, 
                 movie_genres: { 
                     include: { genre: true } 
                 },
@@ -68,6 +69,7 @@ export const homepageService = {
             id: true,
             title: true,
             poster_url: true,
+            view_count: true,
             movie_genres: { include: { genre: true } }
           }
         }
@@ -82,12 +84,6 @@ export const homepageService = {
   },
 
   reorderSections: async (items: { id: string; order: number }[]) => {
-    const transaction = items.map((item) =>
-      prisma.homepageSection.update({
-        where: { id: item.id },
-        data: { display_order: item.order },
-      })
-    );
     return prisma.$transaction(async (tx) => {
       const promises = items.map((item) =>
         tx.homepageSection.update({

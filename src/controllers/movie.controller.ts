@@ -125,10 +125,13 @@ export const movieController = {
 
       const total = await prisma.movie.count({ where: { is_active: true, is_deleted: false } });
 
-      const data = movies.map(movie => ({
-        ...movie,
-        comment_count: movie._count.comments
-      }));
+      const data = movies.map(movie => {
+        const { view_count, ...rest } = movie;
+        return {
+          ...rest,
+          comment_count: movie._count.comments
+        };
+      });
 
       res.status(200).json({
         data,
@@ -167,10 +170,13 @@ export const movieController = {
         }
       });
 
-      const data = movies.map(movie => ({
-        ...movie,
-        favorite_count: movie._count.favourites
-      }));
+      const data = movies.map(movie => {
+        const { view_count, ...rest } = movie;
+        return {
+          ...rest,
+          favorite_count: movie._count.favourites
+        };
+      });
 
       res.status(200).json({ data });
     } catch (error) {
