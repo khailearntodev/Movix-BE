@@ -6,6 +6,29 @@ export const upsertWatchHistory = async (
   progressSeconds: number,
   isFinished: boolean = false
 ) => {
+  const existingHistory = await prisma.watchHistory.findUnique({
+    where: {
+      user_id_episode_id: {
+        user_id: userId,
+        episode_id: episodeId,
+      },
+    },
+  });
+
+  if (!existingHistory) {
+    const episode = await prisma.episode.findUnique({
+      where: { id: episodeId },
+      include: { season: true },
+    });
+
+    if (episode?.season?.movie_id) {
+      await prisma.movie.update({
+        where: { id: episode.season.movie_id },
+        data: { view_count: { increment: 1 } },
+      });
+    }
+  }
+
   return prisma.watchHistory.upsert({
     where: {
       user_id_episode_id: {

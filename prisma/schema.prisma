@@ -112,6 +112,7 @@ model Movie {
   is_deleted     Boolean   @default(false)
   vote_average  Float?    @default(0)
   vote_count    Int?    @default(0)
+  view_count    Int       @default(0)
 
   // Relations
   country         Country?             @relation(fields: [country_id], references: [id], onDelete: SetNull)

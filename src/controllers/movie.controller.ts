@@ -101,6 +101,101 @@ export const movieController = {
     }
   },
 
+  getTopCommentedMovies: async (req: Request, res: Response) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 10;
+      const page = parseInt(req.query.page as string) || 1;
+      const skip = (page - 1) * limit;
+
+      const movies = await prisma.movie.findMany({
+        where: { is_active: true, is_deleted: false },
+        orderBy: {
+          comments: {
+            _count: 'desc'
+          }
+        },
+        take: limit,
+        skip: skip,
+        include: {
+          _count: {
+            select: { comments: true }
+          }
+        }
+      });
+
+      const total = await prisma.movie.count({ where: { is_active: true, is_deleted: false } });
+
+      const data = movies.map(movie => ({
+        ...movie,
+        comment_count: movie._count.comments
+      }));
+
+      res.status(200).json({
+        data,
+        pagination: {
+          page,
+          limit,
+          total_items: total,
+          total_pages: Math.ceil(total / limit)
+        }
+      });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: 'Lỗi máy chủ' });
+    }
+  },
+
+  getTopLikedMovies: async (req: Request, res: Response) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 10;
+      const page = parseInt(req.query.page as string) || 1;
+      const skip = (page - 1) * limit;
+
+      const movies = await prisma.movie.findMany({
+        where: { is_active: true, is_deleted: false },
+        orderBy: {
+          favourites: {
+            _count: 'desc'
+          }
+        },
+        take: limit,
+        skip: skip,
+        include: {
+          _count: {
+            select: { favourites: true }
+          }
+        }
+      });
+
+      const data = movies.map(movie => ({
+        ...movie,
+        favorite_count: movie._count.favourites
+      }));
+
+      res.status(200).json({ data });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: 'Lỗi máy chủ' });
+    }
+  },
+
+  getTopViewedMovies: async (req: Request, res: Response) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 10;
+      const movies = await movieService.getMostViewedMovies(limit);
+      
+      const data = movies.map(movie => ({
+        ...movie,
+        views: movie.view_count
+      }));
+
+      res.status(200).json({ data });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: 'Lỗi máy chủ' });
+    }
+  },
+
   search: async (req: Request, res: Response) => {
     const { q } = req.query;
     if (!q) {
