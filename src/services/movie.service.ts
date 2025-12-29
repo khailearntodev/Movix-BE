@@ -58,6 +58,15 @@ export const getTrendingMovies = async (limit = 10) => {
   });
 };
 
+export const getMostViewedMovies = async (limit = 10) => {
+  return prisma.movie.findMany({
+    where: { is_active: true, is_deleted: false },
+    orderBy: { view_count: 'desc' },
+    take: limit,
+    include: { movie_genres: { include: { genre: true } }, country: true, seasons: true }
+  });
+};
+
 export const getPopularShows = async (limit = 10) => {
   return prisma.movie.findMany({
     where: { is_active: true, is_deleted: false, media_type: MediaType.TV },
@@ -110,6 +119,7 @@ export const movieService = {
     getMovieById,
     getSlugById,
     getTrendingMovies,
+    getMostViewedMovies,
     getPopularShows,
     getMoviesByGenre,
     getGenreIdByName,

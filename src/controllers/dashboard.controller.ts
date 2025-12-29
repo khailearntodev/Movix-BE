@@ -138,12 +138,10 @@ export const dashboardController = {
         where: { is_deleted: false },
         select: {
           title: true,
-          _count: {
-            select: { favourites: true } 
-          }
+          view_count: true
         },
         orderBy: {
-          favourites: { _count: 'desc' }
+          view_count: 'desc'
         }
       });
 
@@ -155,7 +153,7 @@ export const dashboardController = {
             include: {
               movie: {
                 select: {
-                  _count: { select: { favourites: true } }
+                  view_count: true
                 }
               }
             }
@@ -167,7 +165,7 @@ export const dashboardController = {
         genre: g.name,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         views: g.movie_genres.reduce((sum: number, mg: any) => {
-            return sum + (mg.movie._count?.favourites || 0);
+            return sum + (mg.movie.view_count || 0);
         }, 0),
         fill: "var(--color-" + g.name + ")" 
       })).sort((a, b) => b.views - a.views);
@@ -186,7 +184,7 @@ export const dashboardController = {
       res.status(200).json({
         kpi: { totalUsers, totalMovies, totalViews, totalComments },
         monthlyData: monthlyStats,
-        topMoviesData: topMovies.map(m => ({ movie: m.title, views: m._count.favourites })), 
+        topMoviesData: topMovies.map(m => ({ movie: m.title, views: m.view_count })), 
         genreData: genreData,
         topUsersData: topUsers.map(u => ({ user: u.username, comments: u._count.comments }))
       });

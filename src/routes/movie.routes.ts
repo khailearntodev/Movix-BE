@@ -27,6 +27,15 @@ router.get('/search', movieController.search);
 // GET /tmdb/tv/:tmdbId
 router.get('/tmdb/details/:tmdbId', movieController.getTmdbDetails);
 
+// GET /api/movies/top-commented
+router.get('/top-commented', movieController.getTopCommentedMovies);
+
+// GET /api/movies/top-liked
+router.get('/top-liked', movieController.getTopLikedMovies);
+
+// GET /api/movies/top-viewed
+router.get('/top-viewed', movieController.getTopViewedMovies);
+
 // GET /api/movies/trending
 router.get('/trending', movieController.getTrendingMovies);
 
