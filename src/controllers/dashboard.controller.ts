@@ -133,6 +133,33 @@ export const dashboardController = {
         ORDER BY DATE_TRUNC('month', created_at) ASC
       `;
 
+      // Thống kê theo ngày (30 ngày gần nhất)
+      const dailyStatsRaw: any[] = await prisma.$queryRaw`
+        SELECT 
+          TO_CHAR(created_at, 'YYYY-MM-DD') as date_full,
+          COUNT(*)::int as users
+        FROM "User"
+        WHERE created_at >= NOW() - INTERVAL '30 days'
+        GROUP BY TO_CHAR(created_at, 'YYYY-MM-DD'), DATE_TRUNC('day', created_at)
+        ORDER BY DATE_TRUNC('day', created_at) ASC
+      `;
+
+      // Fill dữ liệu cho các ngày không có user mới
+      const dailyStats = [];
+      const today = new Date();
+      for (let i = 30; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(today.getDate() - i);
+        const dateStr = d.toISOString().split('T')[0]; // YYYY-MM-DD
+        const displayDate = `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}`;
+        
+        const found = dailyStatsRaw.find((item: any) => item.date_full === dateStr);
+        dailyStats.push({
+            date: displayDate,
+            users: found ? found.users : 0
+        });
+      }
+
       const topMovies = await prisma.movie.findMany({
         take: 7,
         where: { is_deleted: false },
@@ -186,6 +213,7 @@ export const dashboardController = {
       res.status(200).json({
         kpi: { totalUsers, totalMovies, totalViews, totalComments },
         monthlyData: monthlyStats,
+        dailyData: dailyStats,
         topMoviesData: topMovies.map(m => ({ movie: m.title, views: m._count.favourites })), 
         genreData: genreData,
         topUsersData: topUsers.map(u => ({ user: u.username, comments: u._count.comments }))
