@@ -125,6 +125,42 @@ export const interactionController = {
       res.status(500).json({ message: 'Lỗi máy chủ' });
     }
   },
+
+  updatePlaylist: async (req: Request, res: Response) => {
+    try {
+      const userId = getUserId(req);
+      const { id } = req.params;
+      const { name } = req.body;
+
+      if (!name) {
+        return res.status(400).json({ message: 'Tên playlist không được để trống.' });
+      }
+
+      const updatedPlaylist = await interactService.updatePlaylist(userId, id, name);
+      res.status(200).json(updatedPlaylist);
+    } catch (error: any) {
+      if (error.message === 'PLAYLIST_NOT_FOUND') {
+        return res.status(404).json({ message: 'Không tìm thấy playlist.' });
+      }
+      res.status(500).json({ message: 'Lỗi máy chủ' });
+    }
+  },
+
+  deletePlaylist: async (req: Request, res: Response) => {
+    try {
+      const userId = getUserId(req);
+      const { id } = req.params;
+
+      await interactService.deletePlaylist(userId, id);
+      res.status(200).json({ message: 'Đã xóa playlist.' });
+    } catch (error: any) {
+      if (error.message === 'PLAYLIST_NOT_FOUND') {
+        return res.status(404).json({ message: 'Không tìm thấy playlist.' });
+      }
+      res.status(500).json({ message: 'Lỗi máy chủ' });
+    }
+  },
+
   rateMovie: async (req: Request, res: Response) => {
     try {
       const userId = getUserId(req);

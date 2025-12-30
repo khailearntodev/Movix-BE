@@ -182,6 +182,37 @@ export const removeMovieFromPlaylist = async (userId: string, playlistId: string
     throw new Error('MOVIE_NOT_IN_PLAYLIST');
   }
 };
+
+export const updatePlaylist = async (userId: string, playlistId: string, name: string) => {
+  const playlist = await prisma.playlist.findFirst({
+    where: { id: playlistId, user_id: userId, is_deleted: false },
+  });
+
+  if (!playlist) {
+    throw new Error('PLAYLIST_NOT_FOUND');
+  }
+
+  return prisma.playlist.update({
+    where: { id: playlistId },
+    data: { name },
+  });
+};
+
+export const deletePlaylist = async (userId: string, playlistId: string) => {
+  const playlist = await prisma.playlist.findFirst({
+    where: { id: playlistId, user_id: userId, is_deleted: false },
+  });
+
+  if (!playlist) {
+    throw new Error('PLAYLIST_NOT_FOUND');
+  }
+
+  return prisma.playlist.update({
+    where: { id: playlistId },
+    data: { is_deleted: true },
+  });
+};
+
 export const upsertRating = async (userId: string, movieId: string, ratingValue: number) => {
   if (ratingValue < 1 || ratingValue > 10) {
     throw new Error('INVALID_RATING_VALUE');
