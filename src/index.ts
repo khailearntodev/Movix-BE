@@ -1,6 +1,7 @@
 import express from 'express';
 import { createServer } from 'http';
 import dotenv from 'dotenv';
+dotenv.config();
 import cors from 'cors';
 import movieRouter from './routes/movie.routes';
 import genreRouter from './routes/genre.routes';
@@ -17,7 +18,6 @@ import bannerRoutes from './routes/banner.routes';
 import aiRoutes from './routes/ai.routes';
 import recommendRouter from './routes/recommend.routes';
 import historyRoutes from './routes/history.routes';
-dotenv.config();
 import { WebSocketService } from './services/websocket.service';
 import { NotificationService } from './services/notification.service';
 import { setNotificationService } from './utils/notify/notification.helper';

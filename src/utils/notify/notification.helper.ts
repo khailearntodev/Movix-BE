@@ -17,8 +17,8 @@ export async function notifyNewMovie(movieSlug: string, movieTitle: string) {
   if (!notificationService) return;
 
   await notificationService.broadcastSystemNotification(
-    'Phim mới! ',
-    `"${movieTitle}" vừa được thêm vào Movix`,
+    'Phim mới!!! ',
+    `"${movieTitle}" vừa được thêm vào Movix! Nhấn để xem ngay.`,
     { movieSlug, actionUrl: `/movies/${movieSlug}` }
   );
 }

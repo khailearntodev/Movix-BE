@@ -121,9 +121,10 @@ export const searchMoviesByAI = async (query: string) => {
     }
   });
 
-  const moviesContext = movies.map(m => 
-    `ID:${m.id}|Tên:${m.title}|Nội dung:${m.description}|TL:${m.movie_genres.map(g => g.genre.name).join(",")}`
-  ).join("\n");
+  const moviesContext = movies.map(m => {
+    const desc = m.description ? m.description.substring(0, 150) : "";
+    return `ID:${m.id}|Tên:${m.title}|Nội dung:${desc}|TL:${m.movie_genres.map(g => g.genre.name).join(",")}`;
+  }).join("\n");
 
   const prompt = `
     Dữ liệu: ${moviesContext}
@@ -143,8 +144,12 @@ export const searchMoviesByAI = async (query: string) => {
       include: { movie_genres: { include: { genre: true } } }
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error("AI Search Error:", error);
+    if (error.message?.includes("429") || error.status === 429) {
+        console.warn("AI Quota exceeded, returning empty list.");
+        return [];
+    }
     return [];
   }
 };
@@ -160,18 +165,26 @@ export const searchMoviesByVoice = async (audioBuffer: Buffer, mimeType: string)
     }
   });
 
-  const moviesContext = movies.map(m => 
-    `ID:${m.id}|Tên:${m.title}|Nội dung:${m.description}|TL:${m.movie_genres.map(g => g.genre.name).join(",")}`
-  ).join("\n");
+  const moviesContext = movies.map(m => {
+    const desc = m.description ? m.description.substring(0, 150) : ""; 
+    return `ID:${m.id}|Tên:${m.title}|Nội dung:${desc}|TL:${m.movie_genres.map(g => g.genre.name).join(",")}`;
+  }).join("\n");
 
   const promptText = `
     Dưới đây là danh sách phim trong cơ sở dữ liệu:
     ${moviesContext}
 
     Hãy nghe đoạn ghi âm của người dùng (có thể là tên phim hoặc mô tả nội dung).
-    Hãy tìm các phim trong danh sách trên phù hợp nhất với lời nói đó.
-    CHỈ TRẢ VỀ JSON Mảng ID: ["id1", "id2"]. 
-    Nếu không tìm thấy, trả về []. Không giải thích thêm.
+    Nhiệm vụ:
+    1. Nhận dạng chính xác lời nói của người dùng (speech-to-text).
+    2. Tìm các phim trong danh sách trên phù hợp nhất với lời nói đó.
+    
+    CHỈ TRẢ VỀ JSON theo định dạng sau:
+    {
+        "recognizedText": "Lời nói của người dùng",
+        "movieIds": ["id1", "id2"]
+    }
+    Nếu không tìm thấy phim, movieIds là []. Không giải thích thêm.
   `;
 
   try {
@@ -182,23 +195,38 @@ export const searchMoviesByVoice = async (audioBuffer: Buffer, mimeType: string)
     const responseText = result.response.text();
 
     const cleanedText = responseText.replace(/```json/g, "").replace(/```/g, "").trim();
-    const movieIds = JSON.parse(cleanedText);
+    let parsedResult;
+    try {
+        parsedResult = JSON.parse(cleanedText);
+    } catch (e) {
+        console.warn("AI Voice JSON parse error, raw text:", cleanedText);
+        return { movies: [], recognizedText: "Không thể nhận dạng" };
+    }
 
-    if (!Array.isArray(movieIds) || movieIds.length === 0) return [];
+    const { movieIds, recognizedText } = parsedResult;
 
-    return await prisma.movie.findMany({
+    if (!Array.isArray(movieIds) || movieIds.length === 0) {
+        return { movies: [], recognizedText: recognizedText || "" };
+    }
+
+    const foundMovies = await prisma.movie.findMany({
       where: { id: { in: movieIds } },
       include: { movie_genres: { include: { genre: true } } }
     });
 
-  } catch (error) {
+    return { movies: foundMovies, recognizedText: recognizedText || "" };
+
+  } catch (error: any) {
     console.error("AI Voice Search Error:", error);
-    return [];
+    if (error.message?.includes("429") || error.status === 429) {
+        console.warn("AI Quota exceeded (Voice), returning empty list.");
+        return { movies: [], recognizedText: "Hệ thống đang bận, vui lòng thử lại sau." };
+    }
+    return { movies: [], recognizedText: "" };
   }
 };
 
 export const searchMoviesByImage = async (imageBuffer: Buffer, mimeType: string) => {
-  // 1. Lấy dữ liệu phim (giống logic voice search để tạo context)
   const movies = await prisma.movie.findMany({
     where: { is_deleted: false, is_active: true },
     select: {
@@ -210,9 +238,10 @@ export const searchMoviesByImage = async (imageBuffer: Buffer, mimeType: string)
   });
 
   // 2. Tạo context dạng chuỗi
-  const moviesContext = movies.map(m => 
-    `ID:${m.id}|Tên:${m.title}|Mô tả:${m.description}|Thể loại:${m.movie_genres.map(g => g.genre.name).join(",")}`
-  ).join("\n");
+  const moviesContext = movies.map(m => {
+    const desc = m.description ? m.description.substring(0, 150) : ""; 
+    return `ID:${m.id}|Tên:${m.title}|Mô tả:${desc}|Thể loại:${m.movie_genres.map(g => g.genre.name).join(",")}`;
+  }).join("\n");
 
   const promptText = `
     Dưới đây là danh sách phim trong cơ sở dữ liệu:
@@ -244,8 +273,12 @@ export const searchMoviesByImage = async (imageBuffer: Buffer, mimeType: string)
       include: { movie_genres: { include: { genre: true } } }
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error("AI Image Search Error:", error);
+    if (error.message?.includes("429") || error.status === 429) {
+        console.warn("AI Quota exceeded (Image), returning empty list.");
+        return [];
+    }
     return [];
   }
 };
