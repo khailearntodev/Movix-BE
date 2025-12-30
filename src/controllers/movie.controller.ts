@@ -6,6 +6,7 @@ import { error } from 'console';
 import { movieService } from '../services/movie.service';
 import * as recommendationService from '../services/recommend.service';
 import { getMovieImageUrl } from '../lib/tmdb.helpers';
+import { notifyNewMovie } from '../utils/notify/notification.helper';
 
 function createSlug(text: string) {
   return text
@@ -580,6 +581,7 @@ export const movieController = {
       selectedMovieType,
       tmdb_id, 
       vote_average,
+      runtime,
       trailerUrl,
       // Step 2
       singleMovieFile,
@@ -720,7 +722,7 @@ export const movieController = {
                         episode_number: epIndex + 1,
                         title: ep.title,
                         video_url: ep.fileName,
-                        runtime: ep.duration,
+                        runtime: ep.duration || (runtime ? parseInt(runtime) : 0),
                         video_image_url: rawImage ? getMovieImageUrl(rawImage, 'backdrop') : null,
                     };
                 });
@@ -749,11 +751,15 @@ export const movieController = {
               episode_number: 1,
               title: "Bản đầy đủ",
               video_url: (singleMovieFile as any).fileName,
-              runtime: (singleMovieFile as any).duration || 0,
+              runtime: (singleMovieFile as any).duration || (runtime ? parseInt(runtime) : 0),
             },
           });
         }
         return newMovie;
+
+      // Gửi thông báo broadcast
+      notifyNewMovie(result.slug, result.title).catch(err => console.error("Lỗi gửi thông báo phim mới:", err));
+
       }, { maxWait: 5000, timeout: 20000 });
       res.status(201).json({
         message: "Tạo phim thành công!",

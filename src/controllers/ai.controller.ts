@@ -39,8 +39,11 @@ export const searchMoviesVoice = async (req: Request, res: Response) => {
     const audioBuffer = req.file.buffer;
     const mimeType = req.file.mimetype; 
 
-    const movies = await aiService.searchMoviesByVoice(audioBuffer, mimeType);
-    res.json(movies);
+    const result = await aiService.searchMoviesByVoice(audioBuffer, mimeType);
+    res.json({
+        data: result.movies,
+        recognizedText: result.recognizedText
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Lỗi xử lý tìm kiếm giọng nói" });
