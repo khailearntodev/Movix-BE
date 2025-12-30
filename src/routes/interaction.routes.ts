@@ -19,6 +19,8 @@ router.get('/playlists/:id', interactionController.getPlaylistDetail);
 router.post('/playlist/create', interactionController.createPlaylist);
 router.post('/playlist/add', interactionController.addMovieToPlaylist);
 router.delete('/playlists/:id/movies/:movieId', interactionController.removeMovieFromPlaylist); 
+router.put('/playlists/:id', interactionController.updatePlaylist);
+router.delete('/playlists/:id', interactionController.deletePlaylist);
 
 //ratings
 router.post('/rating', interactionController.rateMovie);       
