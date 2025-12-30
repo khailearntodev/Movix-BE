@@ -13,14 +13,15 @@ function containsVietnameseProfanity(text: string): boolean {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, ""); 
 
-  return VIET_PROFANITY.some(word =>
-    normalized.includes(
-      word
-        .toLowerCase()
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-    )
-  );
+  return VIET_PROFANITY.some(word => {
+    const normalizedWord = word
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+    const escapedWord = normalizedWord.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`\\b${escapedWord}\\b`, 'i');
+    return regex.test(normalized);
+  });
 }
 
 interface PerspectiveResult {
