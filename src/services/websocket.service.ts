@@ -12,7 +12,7 @@ export class WebSocketService {
   constructor(server: HTTPServer) {
     this.io = new SocketIOServer(server, {
       cors: {
-        origin: process.env.FRONTEND_URL || "http://localhost:3000",
+        origin: "*",
         methods: ["GET", "POST"],
         credentials: true
       }
@@ -57,6 +57,10 @@ export class WebSocketService {
 
   private setupSocketHandlers(): void {
     this.io.use(async (socket, next) => {
+      if (socket.handshake.query.isRemote === 'true') {
+          socket.data.user = { id: 'remote_mobile', username: 'Mobile Remote' }; 
+          return next();
+      }
       try {
         console.log('WebSocket Handshake Auth:', socket.handshake.auth);
         let token = socket.handshake.auth.token || socket.handshake.headers.authorization?.replace('Bearer ', '');
@@ -112,6 +116,11 @@ export class WebSocketService {
             this.userSockets.delete(user.id);
           }
         }
+      });
+
+      socket.on('remote_command', (data) => {
+          console.log("📱 Mobile Remote:", data);
+          socket.broadcast.emit('web_execute_command', data);
       });
     });
   }
