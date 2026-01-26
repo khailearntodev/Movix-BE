@@ -237,9 +237,9 @@ export const searchMoviesByImage = async (imageBuffer: Buffer, mimeType: string)
     }
   });
 
-  // 2. Tạo context dạng chuỗi
+  // 2. Tạo context dạng chuỗiS
   const moviesContext = movies.map(m => {
-    const desc = m.description ? m.description.substring(0, 150) : ""; 
+    const desc = m.description ? m.description.substring(0, 100) : ""; 
     return `ID:${m.id}|Tên:${m.title}|Mô tả:${desc}|Thể loại:${m.movie_genres.map(g => g.genre.name).join(",")}`;
   }).join("\n");
 
