@@ -12,14 +12,37 @@ export class WebSocketService {
   constructor(server: HTTPServer) {
     this.io = new SocketIOServer(server, {
       cors: {
-        origin: "*",
-        methods: ["GET", "POST"],
+        origin: (requestOrigin, callback) => {
+          if (!requestOrigin) {
+            return callback(null, true);
+          }
+
+          const allowedOrigins = [
+            "http://localhost:3000",          
+            "https://movix-fe.vercel.app",   
+            process.env.CLIENT_URL,      
+            process.env.FRONTEND_LAN_URL     
+          ];
+
+          if (allowedOrigins.includes(requestOrigin)) {
+            return callback(null, true);
+          }
+
+          if (requestOrigin.startsWith("http://192.168.")) {
+             return callback(null, true);
+          }
+
+          console.log("🚫 Blocked Origin:", requestOrigin);
+          return callback(new Error("Not allowed by CORS"), false);
+        },
+        methods: ["GET", "POST", "PUT", "DELETE"],
         credentials: true
       }
     });
+
     this.prisma = new PrismaClient();
     this.setupSocketHandlers();
-  }
+}
 
   // --- HELPER: Kiểm tra quyền Host ---
   private async verifyHost(roomId: string, userId: string): Promise<boolean> {
