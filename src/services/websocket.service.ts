@@ -58,7 +58,10 @@ export class WebSocketService {
   private setupSocketHandlers(): void {
     this.io.use(async (socket, next) => {
       if (socket.handshake.query.isRemote === 'true') {
-          socket.data.user = { id: 'remote_mobile', username: 'Mobile Remote' }; 
+          socket.data.user = { 
+              id: '00000000-0000-0000-0000-000000000000', 
+              username: 'Mobile Remote' 
+          }; 
           return next();
       }
       try {
@@ -102,7 +105,9 @@ export class WebSocketService {
       this.userSockets.get(user.id)!.add(socket.id);
 
       socket.join(`user:${user.id}`);
-      this.sendUnreadCount(user.id);
+      if (user.id !== 'remote_mobile' && user.id !== '00000000-0000-0000-0000-000000000000') {
+          this.sendUnreadCount(user.id);
+      }
 
       this.handleSocketEvents(socket);      
       this.handleWatchPartyEvents(socket);  
