@@ -4,6 +4,15 @@ import * as authService from '../services/auth.service';
 const REFRESH_TOKEN_EXPIRES_DAYS = 7;
 const RESET_TOKEN_EXPIRATION_MINUTES = 15;
 
+const getCookieOptions = (): any => {
+    const isProduction = process.env.NODE_ENV === 'production';
+    return {
+        httpOnly: true,
+        secure: isProduction,       
+        sameSite: isProduction ? 'none' : 'lax', 
+    };
+};
+
 export const register = async (req: Request, res: Response) => {
   try {
     const { email, username, password } = req.body;
@@ -41,17 +50,15 @@ export const login = async (req: Request, res: Response) => {
     const authResponse: any = await authService.login(email, password);
     const { accessToken, refreshToken, ...userData } = authResponse;
 
+    const cookieOptions = getCookieOptions();
+
     res.cookie('accessToken', accessToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
+        ...cookieOptions,
         maxAge: 15 * 60 * 1000, 
     });
 
     res.cookie('refreshToken', refreshToken, {
-        httpOnly: true, 
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax', 
+        ...cookieOptions,
         maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
@@ -154,22 +161,16 @@ export const logout = async (req: Request, res: Response) => {
           await authService.logout(refreshToken);
         }
         
-        res.clearCookie('accessToken', {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'lax',
-        });
-        
-        res.clearCookie('refreshToken', {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'lax', 
-        });
+        const cookieOptions = getCookieOptions();
+
+        res.clearCookie('accessToken', cookieOptions);
+        res.clearCookie('refreshToken', cookieOptions);
 
         res.status(200).json({ message: 'Đăng xuất thành công.' });
     } catch (error: any) {
-        res.clearCookie('accessToken', { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax' });
-        res.clearCookie('refreshToken', { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax' });
+        const cookieOptions = getCookieOptions();
+        res.clearCookie('accessToken', cookieOptions);
+        res.clearCookie('refreshToken', cookieOptions);
         res.status(200).json({ message: 'Đăng xuất thành công.' });
     }
 };
@@ -184,25 +185,24 @@ export const refreshToken = async (req: Request, res: Response) => {
 
     const newTokens = await authService.renewTokenOnly(refreshToken); 
 
+    const cookieOptions = getCookieOptions();
+
     res.cookie('accessToken', newTokens.accessToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
+        ...cookieOptions,
         maxAge: RESET_TOKEN_EXPIRATION_MINUTES * 60 * 1000, 
     });
 
     res.cookie('refreshToken', newTokens.refreshToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
+        ...cookieOptions,
         maxAge: REFRESH_TOKEN_EXPIRES_DAYS * 24 * 60 * 60 * 1000,
     });
 
     res.status(200).json({ message: 'Làm mới token thành công.' });
 
   } catch (error: any) {
-    res.clearCookie('accessToken');
-    res.clearCookie('refreshToken');
+    const cookieOptions = getCookieOptions();
+    res.clearCookie('accessToken', cookieOptions);
+    res.clearCookie('refreshToken', cookieOptions);
     res.status(403).json({ message: 'Refresh token không hợp lệ hoặc đã hết hạn.' });
   }
 };
