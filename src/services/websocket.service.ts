@@ -19,7 +19,8 @@ export class WebSocketService {
 
           const allowedOrigins = [
             "http://localhost:3000",          
-            "https://movix-fe.vercel.app",   
+            "https://movix-fe.vercel.app",  
+            "https://movix-be.onrender.com", 
             process.env.CLIENT_URL,      
             process.env.FRONTEND_LAN_URL     
           ];
