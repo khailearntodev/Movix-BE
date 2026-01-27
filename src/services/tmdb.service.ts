@@ -14,7 +14,7 @@ const tmdbApiClient = axios.create({
 
 const getPersonDetails = async (personId: number) => {
   try {
-    let response = await tmdbApiClient.get(`/person/${personId}`);
+    const response = await tmdbApiClient.get(`/person/${personId}`);
     if (!response.data.biography) {
         const responseEn = await tmdbApiClient.get(`/person/${personId}`, {
             params: { language: 'en-US' } 
