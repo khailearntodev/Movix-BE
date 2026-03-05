@@ -687,7 +687,8 @@ model BlogPost {
   slug       String     @unique // Đường dẫn thân thiện SEO
   content    String     @db.Text
   excerpt    String?    // Đoạn trích ngắn
-  thumbnail  String?
+  thumbnail  String?    // Ảnh đại diện (cover)
+  images     String[]   @default([]) // Danh sách ảnh đính kèm bài viết
   is_spoiler Boolean    @default(false)
   status     PostStatus @default(PUBLISHED)
   view_count Int        @default(0)
