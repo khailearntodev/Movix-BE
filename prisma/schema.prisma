@@ -1,13 +1,16 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions", "fullTextSearch"] 
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [vector] 
 }
 
-// Enum cho trạng thái người dùng 
+// ==================== ENUMS ====================
+
 enum UserStatus {
   active
   inactive
@@ -15,17 +18,74 @@ enum UserStatus {
   pending_verification
 }
 
-// Enum cho loại credit 
 enum CreditType {
   cast
   crew
 }
 
-//Enum cho loại phim
 enum MediaType {
   MOVIE
   TV
 }
+
+enum SubscriptionStatus {
+  ACTIVE
+  EXPIRED
+  CANCELLED
+  TRIAL
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum PostStatus {
+  DRAFT
+  PUBLISHED
+  HIDDEN
+  ARCHIVED
+}
+
+enum ReportTargetType {
+  BLOG
+  COMMENT
+  USER
+  WATCH_PARTY
+}
+
+enum ReportStatus {
+  PENDING
+  RESOLVED
+  REJECTED
+}
+
+enum NotificationType {
+  NEW_MOVIE
+  COMMENT_REPLY
+  WATCH_PARTY_INVITE
+  SYSTEM
+  ACHIEVEMENT_UNLOCKED
+  SUBSCRIPTION_ALERT
+  BLOG_INTERACTION
+}
+
+enum NotificationChannel {
+  IN_APP
+  EMAIL
+  PUSH
+}
+
+enum DownloadStatus {
+  PENDING
+  COMPLETED
+  EXPIRED
+  REMOVED
+}
+
+// ==================== CORE MODELS ====================
 
 model Role {
   id          String   @id @default(uuid()) @db.Uuid
@@ -56,7 +116,11 @@ model User {
   verificationCode    String?
   verificationExpires DateTime?
 
-  // Relations
+  // --- [GAMIFICATION] ---
+  xp               Int @default(0) 
+  total_watch_time Int @default(0) 
+
+  // --- [RELATIONS] ---
   role                  Role?                @relation(fields: [role_id], references: [id], onDelete: SetNull)
   refreshTokens         RefreshToken[]
   password_resets       PasswordReset[]
@@ -74,6 +138,38 @@ model User {
   push_subscriptions    PushSubscription[]
   watch_party_messages  WatchPartyMessage[]
   watch_party_reminders WatchPartyReminder[]
+
+  // --- [NEW FEATURES RELATIONS] ---
+  subscription      UserSubscription? // 1 User - 1 Active Subscription
+  transactions      Transaction[]
+  achievements      UserAchievement[]
+  blog_posts        BlogPost[]
+  blog_likes        BlogLike[]
+  blog_bookmarks    BlogBookmark[]
+  followers         UserFollow[]      @relation("UserFollowing")
+  following         UserFollow[]      @relation("UserFollowers")
+  reports_submitted Report[]          @relation("UserReports")
+  reports_resolved  Report[]          @relation("AdminResolvers")
+  ai_memory         UserAiMemory?
+  offline_downloads OfflineDownload[]
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid()) @db.Uuid
+  token     String   @unique
+  expiresAt DateTime
+  userId    String   @db.Uuid
+
+  // --- [DEVICE MANAGEMENT] ---
+  device_info String? // "iPhone 14 - iOS 17" hoặc "Chrome - Windows 10"
+  ip_address  String?
+  is_revoked  Boolean @default(false)
+  last_used_at DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@map("refresh_tokens")
 }
 
 model PasswordReset {
@@ -110,35 +206,33 @@ model Movie {
   created_at     DateTime  @default(now())
   updated_at     DateTime  @updatedAt
   is_deleted     Boolean   @default(false)
-  vote_average  Float?    @default(0)
-  vote_count    Int?    @default(0)
-  view_count    Int       @default(0)
+  vote_average   Float?    @default(0)
+  vote_count     Int?      @default(0)
+  view_count     Int       @default(0)
 
-  // Relations
-  country         Country?             @relation(fields: [country_id], references: [id], onDelete: SetNull)
-  movie_genres    MovieGenre[]
-  movie_people    MoviePerson[]
-  ratings         Rating[]
-  comments        Comment[]
-  seasons         Season[]
-  favourites      Favourite[]
-  playlist_movies PlaylistMovie[]
-  watch_parties   WatchParty[]
-  section_links   SectionMovieLink[]
-  recommendation  MovieRecommendation?
-  banners         Banner[]
+  // --- [AI SEARCH] ---
+  embedding      Unsupported("vector(1536)")?
+
+  // --- [RELATIONS] ---
+  country           Country?             @relation(fields: [country_id], references: [id], onDelete: SetNull)
+  movie_genres      MovieGenre[]
+  movie_people      MoviePerson[]
+  ratings           Rating[]
+  comments          Comment[]
+  seasons           Season[]
+  favourites        Favourite[]
+  playlist_movies   PlaylistMovie[]
+  watch_parties     WatchParty[]
+  section_links     SectionMovieLink[]
+  recommendation    MovieRecommendation?
+  banners           Banner[]
+  blog_posts        BlogPost[] // Review phim liên quan
+  offline_downloads OfflineDownload[] // Các bản tải offline
 
   @@unique([tmdb_id, media_type])
   @@map("movies")
 }
 
-model MovieRecommendation {
-  id             String   @id @default(uuid()) @db.Uuid
-  movie_id       String   @unique @db.Uuid
-  similar_movies Json
-  updated_at     DateTime @updatedAt
-  movie          Movie    @relation(fields: [movie_id], references: [id], onDelete: Cascade)
-}
 
 model Genre {
   id           String       @id @default(uuid()) @db.Uuid
@@ -168,8 +262,8 @@ model Person {
   biography    String?
   stage_name   String?       @db.VarChar(300)
   birthday     DateTime?     @db.Date
-  gender       Int? //1 = Nữ, 2 = Nam, 0 = Không rõ, 3 = Non-binary
-  role_type    String        @db.VarChar(50) // "actor", "director", "writer"...
+  gender       Int?
+  role_type    String        @db.VarChar(50)
   avatar_url   String?
   created_at   DateTime      @default(now())
   updated_at   DateTime      @updatedAt
@@ -181,7 +275,7 @@ model MoviePerson {
   id          String     @id @default(uuid()) @db.Uuid
   movie_id    String     @db.Uuid
   person_id   String     @db.Uuid
-  credit_type CreditType // Sử dụng Enum từ CHECK
+  credit_type CreditType
   character   String?    @db.VarChar(300)
   ordering    Int        @default(0)
   created_at  DateTime   @default(now())
@@ -197,7 +291,7 @@ model Rating {
   id         String   @id @default(uuid()) @db.Uuid
   user_id    String   @db.Uuid
   movie_id   String   @db.Uuid
-  rating     Int? // SQL có CHECK, Prisma không enforce, nhưng CSDL sẽ enforce
+  rating     Int?
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
   is_deleted Boolean  @default(false)
@@ -243,20 +337,21 @@ model Season {
 }
 
 model Episode {
-  id             String   @id @default(uuid()) @db.Uuid
-  season_id      String   @db.Uuid
-  episode_number Int
-  title          String?  @db.VarChar(300)
-  runtime        Int?
+  id              String   @id @default(uuid()) @db.Uuid
+  season_id       String   @db.Uuid
+  episode_number  Int
+  title           String?  @db.VarChar(300)
+  runtime         Int?
   video_image_url String?
-  video_url      String?
-  created_at     DateTime @default(now())
-  updated_at     DateTime @updatedAt
-  is_deleted     Boolean  @default(false)
+  video_url       String?
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+  is_deleted      Boolean  @default(false)
 
-  season        Season         @relation(fields: [season_id], references: [id], onDelete: Cascade)
+  season        Season            @relation(fields: [season_id], references: [id], onDelete: Cascade)
   watch_history WatchHistory[]
   watch_parties WatchParty[]
+  downloads     OfflineDownload[] // Download tập này
 
   @@unique([season_id, episode_number])
 }
@@ -314,26 +409,38 @@ model PlaylistMovie {
   @@unique([playlist_id, movie_id])
 }
 
-enum NotificationType {
-  NEW_MOVIE
-  COMMENT_REPLY
-  WATCH_PARTY_INVITE
-  SYSTEM
+// ==================== FEATURES UPGRADE ====================
+
+// --- [NOTIFICATION SYSTEM (UPGRADED)] ---
+// Hỗ trợ đặt lịch (scheduled_at) và đa kênh (channel)
+model Notification {
+  id           String              @id @default(uuid()) @db.Uuid
+  user_id      String?             @db.Uuid
+  type         NotificationType    @default(SYSTEM)
+  channel      NotificationChannel @default(IN_APP) // WEB, PUSH, EMAIL
+  title        String              @db.VarChar(200)
+  message      String
+  data         Json? // Metadata bổ sung (link ảnh, movie_id...)
+  action_url   String?
+  is_read      Boolean             @default(false)
+  is_sent      Boolean             @default(false) // Đã gửi thành công chưa
+  scheduled_at DateTime? // Thời gian dự kiến gửi
+  sent_at      DateTime? // Thời gian thực tế gửi
+  created_at   DateTime            @default(now())
+  updated_at   DateTime            @updatedAt
+  is_deleted   Boolean             @default(false)
+
+  user User? @relation(fields: [user_id], references: [id], onDelete: Cascade)
 }
 
-model Notification {
-  id         String           @id @default(uuid()) @db.Uuid
-  user_id    String?          @db.Uuid
-  type       NotificationType @default(SYSTEM)
-  title      String           @db.VarChar(200)
-  message    String
-  data       Json?
-  action_url String?
-  is_read    Boolean          @default(false)
-  created_at DateTime         @default(now())
-  updated_at DateTime         @updatedAt
-  is_deleted Boolean          @default(false)
-  user       User?            @relation(fields: [user_id], references: [id], onDelete: Cascade)
+model PushSubscription {
+  id         String   @id @default(uuid()) @db.Uuid
+  user_id    String   @db.Uuid
+  endpoint   String   @unique
+  p256dh     String
+  auth       String
+  created_at DateTime @default(now())
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
 }
 
 model ChatbotLog {
@@ -359,6 +466,7 @@ model Banner {
   movie Movie? @relation(fields: [movie_id], references: [id], onDelete: SetNull)
 }
 
+// --- [WATCH PARTY (UPGRADED)] ---
 model WatchParty {
   id                String    @id @default(uuid()) @db.Uuid
   host_user_id      String    @db.Uuid
@@ -368,12 +476,16 @@ model WatchParty {
   is_private        Boolean   @default(false)
   join_code         String?   @unique @db.VarChar(10)
   started_at        DateTime?
+  ended_at          DateTime? // Thời điểm đóng phòng
   is_active         Boolean   @default(true)
   created_at        DateTime  @default(now())
   updated_at        DateTime  @updatedAt
   scheduled_at      DateTime?
   is_30m_notified   Boolean   @default(false)
   is_start_notified Boolean   @default(false)
+
+  // Tính năng Voice
+  is_voice_chat_enabled Boolean @default(false)
 
   host_user User                 @relation("HostUser", fields: [host_user_id], references: [id], onDelete: Cascade)
   movie     Movie?               @relation(fields: [movie_id], references: [id], onDelete: SetNull)
@@ -388,10 +500,8 @@ model WatchPartyReminder {
   party_id   String   @db.Uuid
   user_id    String   @db.Uuid
   created_at DateTime @default(now())
-
-  party WatchParty @relation(fields: [party_id], references: [id], onDelete: Cascade)
-  user  User       @relation(fields: [user_id], references: [id], onDelete: Cascade)
-
+  party      WatchParty @relation(fields: [party_id], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [user_id], references: [id], onDelete: Cascade)
   @@unique([party_id, user_id])
 }
 
@@ -403,10 +513,8 @@ model WatchPartyMember {
   role      String   @default("participant") @db.VarChar(20) // 'host', 'participant'
   is_online Boolean  @default(true)
   is_banned Boolean  @default(false)
-
-  party WatchParty @relation(fields: [party_id], references: [id], onDelete: Cascade)
-  user  User       @relation(fields: [user_id], references: [id], onDelete: Cascade)
-
+  party     WatchParty @relation(fields: [party_id], references: [id], onDelete: Cascade)
+  user      User       @relation(fields: [user_id], references: [id], onDelete: Cascade)
   @@unique([party_id, user_id])
 }
 
@@ -421,9 +529,8 @@ model WatchPartyMessage {
   is_flagged     Boolean  @default(false)
   flag_reason    String?
   toxicity_score Float?   @default(0)
-
-  party WatchParty @relation(fields: [party_id], references: [id], onDelete: Cascade)
-  user  User       @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  party          WatchParty @relation(fields: [party_id], references: [id], onDelete: Cascade)
+  user           User       @relation(fields: [user_id], references: [id], onDelete: Cascade)
 }
 
 model UserFlagLog {
@@ -433,9 +540,8 @@ model UserFlagLog {
   action        String
   reason        String?
   created_at    DateTime @default(now())
-
-  user       User  @relation("FlaggedUser", fields: [user_id], references: [id], onDelete: Cascade)
-  admin_user User? @relation("AdminUser", fields: [admin_user_id], references: [id], onDelete: SetNull)
+  user          User     @relation("FlaggedUser", fields: [user_id], references: [id], onDelete: Cascade)
+  admin_user    User?    @relation("AdminUser", fields: [admin_user_id], references: [id], onDelete: SetNull)
 }
 
 model HomepageSection {
@@ -450,39 +556,206 @@ model HomepageSection {
 }
 
 model SectionMovieLink {
-  id            String   @id @default(uuid()) @db.Uuid
-  section_id    String   @db.Uuid
-  movie_id      String   @db.Uuid
-  display_order Int      @default(0)
-  created_at    DateTime @default(now())
-  updated_at    DateTime @updatedAt
-  is_deleted    Boolean  @default(false)
-
-  section HomepageSection @relation(fields: [section_id], references: [id], onDelete: Cascade)
-  movie   Movie           @relation(fields: [movie_id], references: [id], onDelete: Cascade)
-
+  id            String          @id @default(uuid()) @db.Uuid
+  section_id    String          @db.Uuid
+  movie_id      String          @db.Uuid
+  display_order Int             @default(0)
+  created_at    DateTime        @default(now())
+  updated_at    DateTime        @updatedAt
+  is_deleted    Boolean         @default(false)
+  section       HomepageSection @relation(fields: [section_id], references: [id], onDelete: Cascade)
+  movie         Movie           @relation(fields: [movie_id], references: [id], onDelete: Cascade)
   @@unique([section_id, movie_id])
 }
 
-model RefreshToken {
-  id        String   @id @default(uuid()) @db.Uuid
-  token     String   @unique
-  expiresAt DateTime
-  userId    String   @db.Uuid
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  createdAt DateTime @default(now())
-
-  @@map("refresh_tokens")
+model MovieRecommendation {
+  id             String   @id @default(uuid()) @db.Uuid
+  movie_id       String   @unique @db.Uuid
+  similar_movies Json
+  updated_at     DateTime @updatedAt
+  movie          Movie    @relation(fields: [movie_id], references: [id], onDelete: Cascade)
 }
 
-model PushSubscription {
+// ==================== NEW MODELS FOR PROJECT 2 ====================
+
+// --- [MEMBERSHIP & BILLING] ---
+model SubscriptionPlan {
+  id            String   @id @default(uuid()) @db.Uuid
+  name          String   @unique
+  description   String?
+  price         Float
+  currency      String   @default("VND")
+  duration_days Int
+  level         Int      @default(1)
+  benefits      Json? // { "download_limit": 10, "max_devices": 2, "quality": "4K" }
+  is_active     Boolean  @default(true)
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+
+  subscriptions UserSubscription[]
+  transactions  Transaction[]
+}
+
+model UserSubscription {
+  id         String             @id @default(uuid()) @db.Uuid
+  user_id    String             @unique @db.Uuid
+  plan_id    String             @db.Uuid
+  start_date DateTime           @default(now())
+  end_date   DateTime
+  status     SubscriptionStatus @default(ACTIVE)
+  auto_renew Boolean            @default(false)
+
+  user User             @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  plan SubscriptionPlan @relation(fields: [plan_id], references: [id])
+}
+
+model Transaction {
+  id              String            @id @default(uuid()) @db.Uuid
+  user_id         String            @db.Uuid
+  plan_id         String?           @db.Uuid
+  amount          Float
+  currency        String            @default("VND")
+  payment_method  String
+  transaction_ref String?           @unique
+  status          TransactionStatus @default(PENDING)
+  metadata        Json? // Chi tiết phản hồi từ cổng thanh toán
+  created_at      DateTime          @default(now())
+  updated_at      DateTime          @updatedAt
+
+  user User              @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  plan SubscriptionPlan? @relation(fields: [plan_id], references: [id], onDelete: SetNull)
+}
+
+// --- [MOBILE OFFLINE DOWNLOADS] ---
+model OfflineDownload {
+  id            String         @id @default(uuid()) @db.Uuid
+  user_id       String         @db.Uuid
+  movie_id      String?        @db.Uuid
+  episode_id    String?        @db.Uuid
+  device_id     String         // ID thiết bị tải về
+  file_path     String         // Đường dẫn local trên thiết bị (để tham khảo)
+  status        DownloadStatus @default(COMPLETED)
+  downloaded_at DateTime       @default(now())
+  expires_at    DateTime       // Thời hạn xem offline (vd: 7 ngày hoặc theo sub)
+
+  user    User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  movie   Movie?   @relation(fields: [movie_id], references: [id], onDelete: Cascade)
+  episode Episode? @relation(fields: [episode_id], references: [id], onDelete: Cascade)
+}
+
+// --- [GAMIFICATION] ---
+model Achievement {
+  id              String   @id @default(uuid()) @db.Uuid
+  name            String   @unique
+  description     String?
+  icon_url        String?
+  condition_type  String // "XP", "WATCH_TIME", "LOGIN_STREAK"
+  condition_value Int      @default(0)
+  reward_xp       Int      @default(0) // Thưởng thêm XP khi đạt
+  is_active       Boolean  @default(true)
+
+  user_achievements UserAchievement[]
+}
+
+model UserAchievement {
+  id             String   @id @default(uuid()) @db.Uuid
+  user_id        String   @db.Uuid
+  achievement_id String   @db.Uuid
+  unlocked_at    DateTime @default(now())
+
+  user        User        @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  achievement Achievement @relation(fields: [achievement_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, achievement_id])
+}
+
+// --- [COMMUNITY & BLOG] ---
+model BlogPost {
+  id         String     @id @default(uuid()) @db.Uuid
+  user_id    String     @db.Uuid
+  movie_id   String?    @db.Uuid
+  title      String     @db.VarChar(300)
+  slug       String     @unique // Đường dẫn thân thiện SEO
+  content    String     @db.Text
+  excerpt    String?    // Đoạn trích ngắn
+  thumbnail  String?
+  is_spoiler Boolean    @default(false)
+  status     PostStatus @default(PUBLISHED)
+  view_count Int        @default(0)
+  created_at DateTime   @default(now())
+  updated_at DateTime   @updatedAt
+
+  user      User           @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  movie     Movie?         @relation(fields: [movie_id], references: [id], onDelete: SetNull)
+  likes     BlogLike[]
+  bookmarks BlogBookmark[]
+}
+
+model BlogLike {
   id         String   @id @default(uuid()) @db.Uuid
   user_id    String   @db.Uuid
-  endpoint   String   @unique
-  p256dh     String
-  auth       String
+  post_id    String   @db.Uuid
   created_at DateTime @default(now())
 
-  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  user User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  post BlogPost @relation(fields: [post_id], references: [id], onDelete: Cascade)
+  @@unique([user_id, post_id])
+}
+
+model BlogBookmark {
+  id         String   @id @default(uuid()) @db.Uuid
+  user_id    String   @db.Uuid
+  post_id    String   @db.Uuid
+  created_at DateTime @default(now())
+
+  user User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  post BlogPost @relation(fields: [post_id], references: [id], onDelete: Cascade)
+  @@unique([user_id, post_id])
+}
+
+model UserFollow {
+  id           String   @id @default(uuid()) @db.Uuid
+  follower_id  String   @db.Uuid
+  following_id String   @db.Uuid
+  created_at   DateTime @default(now())
+
+  follower User @relation("UserFollowing", fields: [follower_id], references: [id], onDelete: Cascade)
+  following User @relation("UserFollowers", fields: [following_id], references: [id], onDelete: Cascade)
+  @@unique([follower_id, following_id])
+}
+
+// --- [MODERATION & REPORT] ---
+model Report {
+  id          String           @id @default(uuid()) @db.Uuid
+  reporter_id String           @db.Uuid
+  target_type ReportTargetType
+  target_id   String           @db.Uuid
+  reason      String           @db.Text
+  status      ReportStatus     @default(PENDING)
+  created_at  DateTime         @default(now())
+  resolved_at DateTime?
+  resolved_by String?          @db.Uuid
+  resolution_note String?      // Ghi chú cách xử lý
+
+  reporter User  @relation("UserReports", fields: [reporter_id], references: [id], onDelete: Cascade)
+  resolver User? @relation("AdminResolvers", fields: [resolved_by], references: [id], onDelete: SetNull)
+}
+
+// --- [SYSTEM & AI] ---
+model SystemConfig {
+  id          String   @id @default(uuid()) @db.Uuid
+  key         String   @unique @db.VarChar(100)
+  value       Json
+  description String?
+  updated_at  DateTime @updatedAt
+  updated_by  String?  @db.Uuid // Admin nào sửa
+}
+
+model UserAiMemory {
+  id         String   @id @default(uuid()) @db.Uuid
+  user_id    String   @unique @db.Uuid
+  summary    String?  @db.Text // Tóm tắt ngắn gọn
+  raw_data   Json?    // Dữ liệu chi tiết dạng JSON phân tích được
+  updated_at DateTime @updatedAt
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
 }
