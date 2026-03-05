@@ -1,6 +1,6 @@
 generator client {
   provider        = "prisma-client-js"
-  previewFeatures = ["postgresqlExtensions", "fullTextSearch"] 
+  previewFeatures = ["postgresqlExtensions", "fullTextSearchPostgres"] 
 }
 
 datasource db {
@@ -78,6 +78,13 @@ enum NotificationChannel {
   PUSH
 }
 
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+  UNKNOWN
+}
+
 enum DownloadStatus {
   PENDING
   COMPLETED
@@ -105,6 +112,8 @@ model User {
   display_name        String
   is_online           Boolean?
   avatar_url          String?
+  gender              Gender?    @default(UNKNOWN)
+  date_of_birth       DateTime?  @db.Date
   preferences         Json?
   role_id             String?    @db.Uuid
   created_at          DateTime   @default(now())
