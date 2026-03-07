@@ -148,7 +148,6 @@ model User {
   watch_party_messages  WatchPartyMessage[]
   watch_party_reminders WatchPartyReminder[]
 
-  // --- [NEW FEATURES RELATIONS] ---
   subscription      UserSubscription? // 1 User - 1 Active Subscription
   transactions      Transaction[]
   achievements      UserAchievement[]
@@ -420,8 +419,7 @@ model PlaylistMovie {
 
 // ==================== FEATURES UPGRADE ====================
 
-// --- [NOTIFICATION SYSTEM (UPGRADED)] ---
-// Hỗ trợ đặt lịch (scheduled_at) và đa kênh (channel)
+// --- [NOTIFICATION SYSTEM] ---
 model Notification {
   id           String              @id @default(uuid()) @db.Uuid
   user_id      String?             @db.Uuid
@@ -475,7 +473,7 @@ model Banner {
   movie Movie? @relation(fields: [movie_id], references: [id], onDelete: SetNull)
 }
 
-// --- [WATCH PARTY (UPGRADED)] ---
+// --- [WATCH PARTY  ---
 model WatchParty {
   id                String    @id @default(uuid()) @db.Uuid
   host_user_id      String    @db.Uuid
@@ -493,8 +491,8 @@ model WatchParty {
   is_30m_notified   Boolean   @default(false)
   is_start_notified Boolean   @default(false)
 
-  // Tính năng Voice
   is_voice_chat_enabled Boolean @default(false)
+  max_participants Int @default(100)
 
   host_user User                 @relation("HostUser", fields: [host_user_id], references: [id], onDelete: Cascade)
   movie     Movie?               @relation(fields: [movie_id], references: [id], onDelete: SetNull)
@@ -596,11 +594,13 @@ model SubscriptionPlan {
   currency      String   @default("VND")
   duration_days Int
   level         Int      @default(1)
-  benefits      Json? // { "download_limit": 10, "max_devices": 2, "quality": "4K" }
+  benefits      Json? 
+  can_create_watch_party         Boolean @default(false)
+  max_watch_party_participants   Int     @default(0)
+  can_kick_mute_members          Boolean @default(false)
   is_active     Boolean  @default(true)
   created_at    DateTime @default(now())
   updated_at    DateTime @updatedAt
-
   subscriptions UserSubscription[]
   transactions  Transaction[]
 }
