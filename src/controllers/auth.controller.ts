@@ -155,7 +155,7 @@ export const resetPassword = async (req: Request, res: Response) => {
 
 export const logout = async (req: Request, res: Response) => {
     try {
-        const refreshToken = req.cookies.refreshToken;
+        const refreshToken = req.cookies.refreshToken || req.body.refreshToken;
 
         if (refreshToken) {
           await authService.logout(refreshToken);
@@ -177,7 +177,7 @@ export const logout = async (req: Request, res: Response) => {
 
 export const refreshToken = async (req: Request, res: Response) => {
   try {
-    const refreshToken = req.cookies.refreshToken;
+    const refreshToken = req.cookies.refreshToken || req.body.refreshToken;
 
     if (!refreshToken) {
       return res.status(401).json({ message: 'Không tìm thấy Refresh Token.' });
@@ -197,7 +197,10 @@ export const refreshToken = async (req: Request, res: Response) => {
         maxAge: REFRESH_TOKEN_EXPIRES_DAYS * 24 * 60 * 60 * 1000,
     });
 
-    res.status(200).json({ message: 'Làm mới token thành công.' });
+    res.status(200).json({ 
+        message: 'Làm mới token thành công.',
+        data: newTokens 
+    });
 
   } catch (error: any) {
     const cookieOptions = getCookieOptions();

@@ -11,7 +11,11 @@ export const getProfile = async (userId: string) => {
       username: true,
       display_name: true,
       avatar_url: true,
-      preferences: true, //
+      preferences: true,
+      status: true,
+      xp: true,    
+      total_watch_time: true, 
+      is_flagged: true,
       role: {
         select: {
           name: true,
@@ -24,11 +28,12 @@ export const getProfile = async (userId: string) => {
     throw new Error('USER_NOT_FOUND');
   }
 
-  const preferences = user.preferences as Prisma.JsonObject;
+  const preferences = (user.preferences as Prisma.JsonObject) || {};
   const gender = preferences?.gender || null;
 
   return {
     ...user,
+    role: user.role?.name,
     gender: gender,
   };
 };
