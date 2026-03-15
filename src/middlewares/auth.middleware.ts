@@ -11,8 +11,15 @@ export const authenticateToken = async (
   res: Response,
   next: NextFunction,
 ) => {
-  // 1. LẤY TOKEN TỪ COOKIE
-  let token = req.cookies.accessToken; 
+  let token = req.cookies.accessToken;
+
+  if (!token && req.headers.authorization) {
+      const authHeader = req.headers.authorization;
+      if (authHeader.startsWith('Bearer ')) {
+          token = authHeader.substring(7, authHeader.length);
+      }
+  }
+  
   const refreshToken = req.cookies.refreshToken;
 
   if (token == null) {
