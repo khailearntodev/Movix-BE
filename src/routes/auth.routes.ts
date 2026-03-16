@@ -21,6 +21,9 @@ router.post('/forgot-password', authController.forgotPassword);
 // POST /api/auth/reset-password
 router.post('/reset-password', authController.resetPassword);
 
+// POST /api/auth/reset-password-otp
+router.post('/reset-password-otp', authController.resetPasswordWithOtp);
+
 // POST /api/auth/logout
 router.post('/logout', authController.logout);
 

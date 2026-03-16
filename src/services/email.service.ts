@@ -43,6 +43,7 @@ function escapeHtml(unsafe: any) {
 interface EmailOptions {
   name?: string;
   expiresMinutes?: number;
+  otp?: string;
 }
 
 export const sendVerificationEmail = async (
@@ -155,6 +156,7 @@ export const sendPasswordResetEmail = async (
 ) => {
   const name = options.name ? escapeHtml(options.name) : '';
   const expiresMinutes = options.expiresMinutes ?? 10;
+  const otp = options.otp;
 
   const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
 
@@ -164,6 +166,7 @@ export const sendPasswordResetEmail = async (
     `Chúng tôi nhận được yêu cầu đặt lại mật khẩu cho tài khoản ${appName} của bạn.`,
     `Nhấp vào link sau để đặt lại mật khẩu (link có hiệu lực trong ${expiresMinutes} phút):`,
     resetLink,
+    otp ? `Hoặc nhập mã sau trong ứng dụng: ${otp}` : '',
     `Nếu bạn không yêu cầu điều này, vui lòng bỏ qua email.`,
     `— Đội ngũ ${appName}`,
   ].join('\n');
@@ -186,6 +189,7 @@ export const sendPasswordResetEmail = async (
       .content p { margin: 0 0 20px 0; color: #F5F5F5; line-height: 1.5; }
       .button-box { margin: 20px 0 30px 0; text-align: center; }
       .button { background-color: #E50914; color: #FFFFFF; padding: 14px 28px; border-radius: 8px; font-size: 16px; font-weight: 700; text-decoration: none; display: inline-block; }
+      .otp-box { margin: 20px 0 30px 0; text-align: center; background-color: #333; border-radius: 4px; padding: 10px; font-size: 24px; font-weight: bold; letter-spacing: 4px; color: #E50914; }
       .footer { padding: 16px 24px; background-color: #111111; border-top: 1px solid #333; text-align: center; color: #999999; font-size: 12px; }
       .footer a { color: #E50914; text-decoration: none; }
     </style>
@@ -220,6 +224,14 @@ export const sendPasswordResetEmail = async (
                     Đặt Lại Mật Khẩu
                   </a>
                 </div>
+                ${
+                  otp
+                    ? `<p style="text-align:center;margin-bottom:10px;">Hoặc nhập mã OTP sau trong ứng dụng:</p>
+                       <div class="otp-box" style="margin:0 auto 30px auto;width:fit-content;padding:10px 20px;background-color:#333;border-radius:4px;font-size:24px;font-weight:bold;letter-spacing:4px;color:#E50914;">
+                         ${otp}
+                       </div>`
+                    : ''
+                }
                 <hr style="border:none;border-top:1px solid #333;margin:24px 0;" />
                 <p style="margin:0;color:#999999;font-size:13px;line-height:1.5;">
                   Nếu bạn không yêu cầu điều này, hãy bỏ qua email này. <br />
