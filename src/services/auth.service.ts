@@ -241,10 +241,13 @@ export const requestPasswordReset = async (email: string) => {
   });
 
   // 4. Tạo token mới trong CSDL
+  const resetCode = Math.floor(100000 + Math.random() * 900000).toString(); // Generate 6-digit OTP
+
   const resetRequest = await prisma.passwordReset.create({
     data: {
       user_id: user.id,
       reset_token: token,
+      reset_code: resetCode,
       expires_at: expires,
     },
   });
@@ -253,6 +256,7 @@ export const requestPasswordReset = async (email: string) => {
   await emailService.sendPasswordResetEmail(user.email, token, {
     name: user.display_name,
     expiresMinutes: RESET_TOKEN_EXPIRATION_MINUTES,
+    otp: resetCode,
   });
 
   return true;
@@ -287,6 +291,50 @@ export const resetPassword = async (token: string, newPassword: string) => {
   });
 
   // 5. Xóa token đã sử dụng 
+  await prisma.passwordReset.delete({
+    where: { id: resetRequest.id },
+  });
+
+  return true;
+};
+
+export const resetPasswordWithOtp = async (email: string, otp: string, newPassword: string) => {
+  if (!email || !otp || !newPassword) {
+    throw new Error('INVALID_INPUT');
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { email },
+  });
+
+  if (!user) {
+    throw new Error('USER_NOT_FOUND');
+  }
+
+  const resetRequest = await prisma.passwordReset.findFirst({
+    where: {
+      user_id: user.id,
+      reset_code: otp,
+    },
+    orderBy: { created_at: 'desc' }, 
+  });
+
+  if (!resetRequest) {
+    throw new Error('INVALID_OTP');
+  }
+
+  if (resetRequest.expires_at < new Date()) {
+    await prisma.passwordReset.delete({ where: { id: resetRequest.id } });
+    throw new Error('OTP_EXPIRED');
+  }
+
+  const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { password: hashedPassword },
+  });
+
   await prisma.passwordReset.delete({
     where: { id: resetRequest.id },
   });

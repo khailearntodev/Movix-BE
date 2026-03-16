@@ -209,3 +209,26 @@ export const refreshToken = async (req: Request, res: Response) => {
     res.status(403).json({ message: 'Refresh token không hợp lệ hoặc đã hết hạn.' });
   }
 };
+
+export const resetPasswordWithOtp = async (req: Request, res: Response) => {
+  try {
+    const { email, otp, newPassword } = req.body;
+    if (!email || !otp || !newPassword) {
+      return res.status(400).json({ message: 'Email, OTP và mật khẩu mới là bắt buộc.' });
+    }
+
+    await authService.resetPasswordWithOtp(email, otp, newPassword);
+    res.status(200).json({
+      message: 'Mật khẩu đã được đặt lại thành công.',
+    });
+  } catch (error: any) {
+    if (error.message === 'USER_NOT_FOUND' || error.message === 'INVALID_OTP') {
+      return res.status(400).json({ message: 'Thông tin xác thực không hợp lệ.' });
+    }
+    if (error.message === 'OTP_EXPIRED') {
+      return res.status(400).json({ message: 'Mã OTP đã hết hạn.' });
+    }
+    console.error('Reset Password with OTP error:', error);
+    res.status(500).json({ message: 'Lỗi server khi đặt lại mật khẩu bằng OTP.' });
+  }
+};
