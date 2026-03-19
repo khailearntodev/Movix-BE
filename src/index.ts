@@ -82,7 +82,7 @@ app.get('/api/websocket/status', (req, res) => {
 
 startCronJobs();
 
-server.listen(port, () => {
+server.listen(Number(port), '0.0.0.0', () => {
   console.log(`Server running on port ${port}`);
 });
 
