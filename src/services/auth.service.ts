@@ -26,9 +26,11 @@ const generateTokens = async (userId: string) => {
     Date.now() + REFRESH_TOKEN_EXPIRES_DAYS * 24 * 60 * 60 * 1000,
   );
 
-  // Xóa token cũ nếu có và tạo token mới
   await prisma.refreshToken.deleteMany({
-    where: { userId },
+    where: { 
+      userId,
+      expiresAt: { lt: new Date() }
+    },
   });
   await prisma.refreshToken.create({
     data: {

@@ -209,7 +209,10 @@ export const watchPartyService = {
     }
 
     if (party.host_user_id !== userId) {
-      throw new Error("NOT_HOST");
+      const user = await prisma.user.findUnique({ where: { id: userId }, include: { role: true } });
+      if (user?.role?.name !== 'Admin') {
+        throw new Error("NOT_HOST");
+      }
     }
 
     return prisma.watchParty.update({
@@ -226,7 +229,7 @@ export const watchPartyService = {
         where: { id: partyId },
         include: {
             movie: { select: { title: true, poster_url: true, backdrop_url: true, description: true, release_date: true, movie_genres: { include: { genre: true } }, country: true } },
-            episode: { include: { season: true } },
+            episode: { select: { id: true, video_url: true, title: true, episode_number: true, season: true } },
             host_user: { select: { id: true, username: true, display_name: true, avatar_url: true } },
             
             messages: {
@@ -241,7 +244,9 @@ export const watchPartyService = {
     if (!party) throw new Error("PARTY_NOT_FOUND");
     if (!party.is_active) throw new Error("PARTY_ENDED");
 
-    const formattedMessages = party.messages.map((msg: any) => {
+    // Lỗi có thể do Prisma typing array, ta dùng `[]` hoặc `any[]`
+    const partyMessages = (party as any).messages || [];
+    const formattedMessages = partyMessages.map((msg: any) => {
         return {
             id: msg.id,
             text: msg.message, 
