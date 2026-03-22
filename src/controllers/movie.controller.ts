@@ -421,10 +421,13 @@ export const movieController = {
       }
 
       if (genre && genre !== 'Tất cả') {
-        const genreQuery = Array.isArray(genre)
-          ? (genre as string[])
-          : [genre as string];
-        const validGenres = genreQuery.filter(g => g && g !== 'Tất cả');
+        let genreList: string[] = [];
+        if (Array.isArray(genre)) {
+          genreList = genre as string[];
+        } else if (typeof genre === 'string') {
+          genreList = genre.split(',').map(g => g.trim());
+        }
+        const validGenres = genreList.filter(g => g && g !== 'Tất cả');
 
         if (validGenres.length > 0) {
           where.movie_genres = {
