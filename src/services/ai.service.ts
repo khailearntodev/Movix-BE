@@ -214,111 +214,103 @@ Không giải thích.`;
 };
 
 export const searchMoviesByVoice = async (audioBuffer: Buffer, mimeType: string) => {
-  const movies = await prisma.movie.findMany({
-    where: { is_deleted: false, is_active: true },
-    take: 100,
-    select: {
-      id: true,
-      title: true,
-      movie_genres: { select: { genre: { select: { name: true } } } }
-    }
-  });
-
-  const moviesContext = movies.map(m => {
-    return `${m.id}|${m.title}|${m.movie_genres.map(g => g.genre.name).join(",")}`;
-  }).join("\n");
-
-  const promptText = `Dữ liệu phim (ID|Tên|Thể loại):
-${moviesContext}
-
-Hãy nghe đoạn ghi âm và tìm phim phù hợp.
-CHỈ trả về JSON:
-{"recognizedText":"Lời nói","movieIds":["id1","id2"]}
-Không giải thích.`;
-
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" }); 
+    const promptText = `Bạn là chuyên gia nhận diện giọng nói. 
+Nhiệm vụ: Chuyển đoạn âm thanh này thành văn bản và trích xuất các từ khóa tìm kiếm phim (tên phim, diễn viên, hoặc thể loại).
 
-    const imagePart = fileToGenerativePart(audioBuffer, mimeType);
-    const result = await model.generateContent([promptText, imagePart]);
+TRẢ VỀ JSON:
+{"recognizedText": "Nội dung đầy đủ bạn nghe được", "keywords": ["từ khóa 1", "từ khóa 2"]}`;
+
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" }); 
+    const audioPart = fileToGenerativePart(audioBuffer, mimeType);
+    const result = await model.generateContent([promptText, audioPart]);
     const responseText = result.response.text();
 
-    const cleanedText = responseText.replace(/```json/g, "").replace(/```/g, "").trim();
-    let parsedResult;
-    try {
-        parsedResult = JSON.parse(cleanedText);
-    } catch (e) {
-        console.warn("AI Voice JSON parse error, raw text:", cleanedText);
-        return { movies: [], recognizedText: "Không thể nhận dạng" };
-    }
+    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error("AI transcription error");
+    
+    const parsedResult = JSON.parse(jsonMatch[0]);
+    const recognizedText = parsedResult.recognizedText || "";
+    const keywords = parsedResult.keywords || [];
 
-    const { movieIds, recognizedText } = parsedResult;
+    // Nếu không có keywords, dùng recognizedText làm keyword chính
+    const searchTerms = keywords.length > 0 ? keywords : [recognizedText];
+    
+    console.log(`🎙️ Voice Search Keywords: [${searchTerms.join(", ")}]`);
 
-    if (!Array.isArray(movieIds) || movieIds.length === 0) {
-        return { movies: [], recognizedText: recognizedText || "" };
-    }
-
+    // Tìm kiếm trong TOÀN BỘ database dựa trên keywords
     const foundMovies = await prisma.movie.findMany({
-      where: { id: { in: movieIds } },
-      include: { movie_genres: { include: { genre: true } } }
+      where: {
+        is_deleted: false,
+        is_active: true,
+        OR: searchTerms.map((term: string) => ({
+          OR: [
+            { title: { contains: term, mode: 'insensitive' } },
+            { original_title: { contains: term, mode: 'insensitive' } },
+            { description: { contains: term, mode: 'insensitive' } },
+            { movie_genres: { some: { genre: { name: { contains: term, mode: 'insensitive' } } } } }
+          ]
+        }))
+      },
+      include: { movie_genres: { include: { genre: true } } },
+      take: 20 // Trả về 20 kết quả tốt nhất
     });
 
-    return { movies: foundMovies, recognizedText: recognizedText || "" };
+    return { movies: foundMovies, recognizedText };
 
   } catch (error: any) {
-    console.error("AI Voice Search Error:", error);
-    if (error.message?.includes("429") || error.status === 429) {
-        console.warn("AI Quota exceeded (Voice), returning empty list.");
-        return { movies: [], recognizedText: "Hệ thống đang bận, vui lòng thử lại sau." };
-    }
-    return { movies: [], recognizedText: "" };
+    console.error("AI Voice Search Hybrid Error:", error);
+    return { movies: [], recognizedText: "Lỗi xử lý AI hoặc Timeout" };
   }
 };
 
 export const searchMoviesByImage = async (imageBuffer: Buffer, mimeType: string) => {
-  const movies = await prisma.movie.findMany({
-    where: { is_deleted: false, is_active: true },
-    take: 100,
-    select: {
-      id: true,
-      title: true,
-      movie_genres: { select: { genre: { select: { name: true } } } }
-    }
-  });
-
-  const moviesContext = movies.map(m => {
-    return `${m.id}|${m.title}|${m.movie_genres.map(g => g.genre.name).join(",")}`;
-  }).join("\n");
-
-  const promptText = `Dữ liệu phim (ID|Tên|Thể loại):
-${moviesContext}
-
-Phân tích hình ảnh và tìm phim phù hợp.
-CHỈ trả về JSON mảng ID: ["id1","id2"]
-Không giải thích.`;
-
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" }); 
+    const movies = await prisma.movie.findMany({
+      where: { is_deleted: false, is_active: true },
+      take: 40,
+      select: {
+          id: true,
+          title: true,
+          release_date: true,
+          movie_genres: { select: { genre: { select: { name: true } } } }
+      }
+    });
 
+    const moviesContext = movies.map((m, i) => {
+      const year = m.release_date ? new Date(m.release_date).getFullYear() : "N/A";
+      const genres = m.movie_genres.map(g => g.genre.name).join(",");
+      return `${i + 1}|${m.title}|${year}|${genres}`;
+    }).join("\n");
+
+    const promptText = `Tìm phim phù hợp từ hình ảnh này trong danh sách (STT|Tên|Năm|Thể loại):
+${moviesContext}
+Chỉ trả về JSON mảng STT: [1, 5, 8]`;
+
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" }); 
     const imagePart = fileToGenerativePart(imageBuffer, mimeType);
-    
     const result = await model.generateContent([promptText, imagePart]);
     const responseText = result.response.text();
 
-    const movieIds = safeParseJsonIds(responseText);
+    const jsonMatch = responseText.match(/\[[\s\S]*\]/);
+    if (!jsonMatch) throw new Error("AI response format error");
+    
+    const indices = JSON.parse(jsonMatch[0]);
+    const validIds = indices
+      .map((idx: number) => movies[idx - 1]?.id)
+      .filter((id: any): id is string => !!id);
 
-    if (movieIds.length === 0) return [];
+    if (validIds.length === 0) return [];
 
-    return await prisma.movie.findMany({
-      where: { id: { in: movieIds } },
+    const foundMovies = await prisma.movie.findMany({
+      where: { id: { in: validIds } },
       include: { movie_genres: { include: { genre: true } } }
     });
 
+    return validIds.map((id: string) => foundMovies.find(m => m.id === id)).filter((m: any): m is any => !!m);
+
   } catch (error: any) {
-    console.error("AI Image Search Error:", error.message || error);
-    if (error.message?.includes("429") || error.status === 429) {
-        console.warn("AI Quota exceeded (Image), returning empty list.");
-    }
+    console.error("AI Image Search Error:", error);
     return [];
   }
 };
