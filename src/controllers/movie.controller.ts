@@ -796,6 +796,7 @@ export const movieController = {
 
       // Gửi thông báo broadcast
       notifyNewMovie(result.slug, result.title).catch(err => console.error("Lỗi gửi thông báo phim mới:", err));
+      recommendationService.notifyAINewMovie(result.id).catch(err => console.error("Lỗi gửi phim tới AI Service:", err));
 
       }, { maxWait: 5000, timeout: 20000 });
       movieService.syncMovieEmbedding(result.id).catch(console.error);
