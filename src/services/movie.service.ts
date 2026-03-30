@@ -1,5 +1,6 @@
 import { prisma } from "../lib/prisma";
 import { MediaType } from "@prisma/client";
+import { generateEmbedding } from "./ai.service";
 
 export const getMovieById = async (movieId: string) => {
   try {
@@ -115,6 +116,36 @@ export const getSlugById = async (movieId: string) => {
     return movie?.slug || null;
 }
 
+export const syncMovieEmbedding = async (movieId: string) => {
+  try {
+    const movie = await prisma.movie.findUnique({
+      where: { id: movieId },
+      include: { movie_genres: { include: { genre: true } } }
+    });
+
+    if (!movie) {
+      console.warn(`Không tìm thấy phim ID ${movieId} để đồng bộ Vector.`);
+      return;
+    }
+
+    const genres = movie.movie_genres.map(g => g.genre.name).join(", ");
+    const textToEmbed = `Tên phim: ${movie.title}. Tên gốc: ${movie.original_title}. Thể loại: ${genres}. Mô tả: ${movie.description || "Không có mô tả"}`;
+
+    const embeddingArray = await generateEmbedding(textToEmbed);
+    const embeddingString = `[${embeddingArray.join(',')}]`;
+
+    await prisma.$executeRawUnsafe(
+      `UPDATE movies SET embedding = $1::vector WHERE id = $2::uuid`,
+      embeddingString,
+      movie.id
+    );
+
+    console.log(`✅ [AI Sync] Đã đồng bộ Vector cho phim: ${movie.title}`);
+  } catch (error) {
+    console.error(`❌ [AI Sync] Lỗi đồng bộ Vector cho phim ID ${movieId}:`, error);
+  }
+};
+
 export const movieService = {
     getMovieById,
     getSlugById,
@@ -123,5 +154,6 @@ export const movieService = {
     getPopularShows,
     getMoviesByGenre,
     getGenreIdByName,
-    getBySlug
+    getBySlug,
+    syncMovieEmbedding
 };
