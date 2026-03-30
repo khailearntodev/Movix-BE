@@ -64,6 +64,24 @@ function fileToGenerativePart(buffer: Buffer, mimeType: string) {
   };
 }
 
+export const generateEmbedding = async (text: string): Promise<number[]> => {
+  try {
+    const model = genAI.getGenerativeModel({ model: "gemini-embedding-001" });
+    
+    const result = await model.embedContent(text);
+    let embedding = result.embedding.values;
+    
+    if (embedding.length > 1536) {
+        embedding = embedding.slice(0, 1536);
+    }
+    
+    return embedding; 
+  } catch (error) {
+    console.error("Lỗi khi tạo embedding:", error);
+    throw error;
+  }
+};
+
 export const chatWithAI = async (userMessage: string, userId?: string, isRaw: boolean = false) => {
 
   if (isRaw) {
@@ -143,72 +161,48 @@ export const chatWithAI = async (userMessage: string, userId?: string, isRaw: bo
   }
 };
 
-export const searchMoviesByAI = async (query: string) => {
-  const movies = await prisma.movie.findMany({
-    where: { is_deleted: false, is_active: true },
-    select: {
-      id: true,
-      title: true,
-      description: true,
-      release_date: true,
-      movie_genres: { select: { genre: { select: { name: true } } } }
-    }
-  });
-
-  const moviesContext = movies.map((m, i) => {
-    const desc = m.description ? m.description.substring(0, 120) : "";
-    const year = m.release_date ? new Date(m.release_date).getFullYear() : "";
-    const genres = m.movie_genres.map(g => g.genre.name).join(",");
-    return `${i}|${m.title}|${year}|${genres}|${desc}`;
-  }).join("\n");
-
-  const prompt = `Bạn là chuyên gia phim ảnh. Dưới đây là danh sách phim (Index|Tên|Năm|Thể loại|Mô tả):
-${moviesContext}
-
-Người dùng mô tả: "${query}"
-
-Hãy phân tích ngữ nghĩa mô tả trên và tìm các phim PHÙ HỢP NHẤT dựa trên:
-- Nội dung/cốt truyện tương đồng
-- Thể loại phù hợp
-- Bối cảnh, nhân vật, cảm xúc được mô tả
-- Từ khóa liên quan
-
-CHỈ trả về JSON mảng số index, sắp xếp theo độ phù hợp giảm dần, tối đa 10: [0,5,12]
-Không giải thích.`;
-
+export const searchMoviesByAI = async (query: string, limit: number = 5) => {
+  console.log("👉 Đang tìm kiếm AI với từ khóa:", query);
   try {
-    const textResponse = await generateContentSafe(prompt);
-    const cleaned = textResponse.replace(/```json/g, "").replace(/```/g, "").trim();
+    const queryEmbeddingArray = await generateEmbedding(query);
+    const queryEmbeddingString = `[${queryEmbeddingArray.join(',')}]`;
+    console.log("✅ Đã tạo Vector cho câu hỏi thành công!");
 
-    let indices: number[] = [];
-    try {
-      const parsed = JSON.parse(cleaned);
-      if (Array.isArray(parsed)) indices = parsed.map(Number).filter(n => !isNaN(n));
-    } catch {
-      const matches = cleaned.match(/\d+/g);
-      if (matches) indices = matches.map(Number).filter(n => !isNaN(n));
-    }
+    const similarMovies = await prisma.$queryRawUnsafe<any[]>(`
+      SELECT 
+        m.id, 
+        m.title, 
+        m.slug, 
+        m.description,
+        m.poster_url,
+        m.release_date,
+        1 - (m.embedding <=> $1::vector) as similarity_score
+      FROM movies m
+      WHERE m.is_deleted = false 
+        AND m.is_active = true 
+        AND m.embedding IS NOT NULL
+      ORDER BY m.embedding <=> $1::vector
+      LIMIT $2;
+    `, queryEmbeddingString, limit);
 
-    const validIds = indices
-      .filter(i => i >= 0 && i < movies.length)
-      .map(i => movies[i].id);
+    if (similarMovies.length === 0) return [];
 
-    if (validIds.length === 0) return [];
-
-    const found = await prisma.movie.findMany({
-      where: { id: { in: validIds } },
+    const movieIds = similarMovies.map(m => m.id);
+    const moviesWithGenres = await prisma.movie.findMany({
+      where: { id: { in: movieIds } },
       include: { movie_genres: { include: { genre: true } } }
     });
 
-    return validIds
-      .map(id => found.find(m => m.id === id))
-      .filter(Boolean);
+    return similarMovies.map(rawMovie => {
+      const fullMovie = moviesWithGenres.find(m => m.id === rawMovie.id);
+      return {
+        ...fullMovie,
+        similarity_score: rawMovie.similarity_score
+      };
+    });
 
   } catch (error: any) {
-    console.error("AI Search Error:", error.message || error);
-    if (error.message?.includes("429") || error.status === 429) {
-        console.warn("AI Quota exceeded, returning empty list.");
-    }
+    console.error("Lỗi AI Vector Search:", error.message || error);
     return [];
   }
 };

@@ -5,6 +5,7 @@ import { prisma } from "../lib/prisma";
 import { error } from 'console';
 import { movieService } from '../services/movie.service';
 import * as recommendationService from '../services/recommend.service';
+import * as aiService from '../services/ai.service';
 import { getMovieImageUrl } from '../lib/tmdb.helpers';
 import { notifyNewMovie } from '../utils/notify/notification.helper';
 
@@ -211,7 +212,8 @@ export const movieController = {
     const query = q as string;
 
     try {
-      const movies = await prisma.movie.findMany({
+      // 1. Tìm chính xác qua Text (tên phim, diễn viên)
+      const keywordMovies = await prisma.movie.findMany({
         where: {
           title: {
             contains: query,
@@ -230,6 +232,29 @@ export const movieController = {
         },
         take: 10
       });
+
+      // 2. Tìm kiếm qua AI (ngữ nghĩa) để bổ sung thêm
+      let aiMovies: any[] = [];
+      try {
+        aiMovies = await aiService.searchMoviesByAI(query);
+      } catch (err) {
+        console.error("Lỗi khi tìm kiếm qua AI ở Hybrid Search:", err);
+      }
+
+      // 3. Gộp kết quả (tránh trùng lặp id)
+      const movieMap = new Map();
+      
+      // Ưu tiên phim tìm chính xác từ khóa hiện lên trước
+      keywordMovies.forEach(m => movieMap.set(m.id, m));
+      
+      // Thêm phim từ AI
+      aiMovies.forEach(m => {
+        if (!movieMap.has(m.id)) {
+          movieMap.set(m.id, m);
+        }
+      });
+      
+      const movies = Array.from(movieMap.values()).slice(0, 15); // Giới hạn lấy tối đa 15 phim
 
       res.status(200).json({ movies, people });
     } catch (error) {
@@ -406,10 +431,19 @@ export const movieController = {
       }
 
       if (typeof q === 'string' && q.trim()) {
-        where.title = {
-          contains: q.trim(),
-          mode: 'insensitive',
-        };
+        const queryTerm = q.trim();
+        let aiMovieIds: string[] = [];
+        try {
+          const aiMovies = await aiService.searchMoviesByAI(queryTerm);
+          aiMovieIds = aiMovies.map((m: any) => m.id);
+        } catch (err) {
+          console.error("Lỗi khi tìm kiếm qua AI ở filterMovies:", err);
+        }
+
+        where.OR = [
+          { title: { contains: queryTerm, mode: 'insensitive' } },
+          { id: { in: aiMovieIds } }
+        ];
       }
 
       if (typeof type === 'string' && type !== 'Tất cả') {
@@ -764,6 +798,7 @@ export const movieController = {
       notifyNewMovie(result.slug, result.title).catch(err => console.error("Lỗi gửi thông báo phim mới:", err));
 
       }, { maxWait: 5000, timeout: 20000 });
+      movieService.syncMovieEmbedding(result.id).catch(console.error);
       res.status(201).json({
         message: "Tạo phim thành công!",
         data: result
@@ -990,6 +1025,8 @@ export const movieController = {
         }
         return updatedMovie;
       }, { maxWait: 5000, timeout: 20000 });
+
+      movieService.syncMovieEmbedding(result.id).catch(console.error);
 
       res.status(200).json({ 
         message: "Cập nhật phim thành công!", 
