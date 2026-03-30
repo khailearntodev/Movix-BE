@@ -43,6 +43,8 @@ services:
       context: ./recommendation-engine
     ports:
       - "8000:8000"
+    volumes:
+      - ./recommendation-engine:/app
     env_file:
       - ./.env
     environment:

@@ -174,3 +174,13 @@ export const triggerTraining = async () => {
     throw error;
   }
 };
+
+export const notifyAINewMovie = async (movieId: string) => {
+  try {
+    const response = await axios.post(`${AI_URL}/add-movie/${movieId}`);
+    console.log(`AI Service: Movie ${movieId} added to index in background`);
+    return response.data;
+  } catch (error) {
+    console.error(` AI Service Error adding movie ${movieId}:`, error);
+  }
+};
