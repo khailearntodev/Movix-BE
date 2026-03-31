@@ -7,9 +7,10 @@ export const chat = async (req: Request, res: Response) => {
     const { message, mode } = req.body;
     const userId = req.userId; 
     
+    if (!userId) return res.status(401).json({ message: "Unauthorized" });
     if (!message) return res.status(400).json({ message: "Thiếu nội dung chat" });
 
-    const botReply = await aiService.chatWithAI(message, userId, mode === 'raw');
+    const botReply = await aiService.chatWithAI(userId, message);
     res.json({ reply: botReply });
   } catch (error) {
     console.error(error);
