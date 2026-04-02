@@ -102,6 +102,22 @@ async function getFallbackMovies(movieId: string) {
   });
 }
 export const getPersonalizedRecommendations = async (userId: string, limit: number = 20) => {
+  try {
+    const response = await axios.get(`${AI_URL}/recommend-user/${userId}`, {
+      params: { k: limit }
+    });
+    const recommendedIds = response.data?.recommendations || [];
+    if (recommendedIds.length > 0) {
+      return getMoviesFromIds(recommendedIds);
+    }
+  } catch (error) {
+    console.error("AI personalized recommendation failed, fallback to local strategy:", error);
+  }
+
+  return getPersonalizedRecommendationsFallback(userId, limit);
+};
+
+const getPersonalizedRecommendationsFallback = async (userId: string, limit: number = 20) => {
   const [recentHistory, favorites, highRatings] = await prisma.$transaction(async (tx) => {
     const recentHistory = await tx.watchHistory.findMany({
       where: { user_id: userId, is_deleted: false },

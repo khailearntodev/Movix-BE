@@ -9,8 +9,8 @@ import os
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("Starting Server: Loading models into memory...")
-    if not os.path.exists(core.MODEL_PATH):
-        print("Model not found. Building initial index...")
+    if not os.path.exists(core.MODEL_PATH) or not os.path.exists(core.META_PATH) or not os.path.exists(core.ARTIFACT_PATH):
+        print("Models not found. Building initial index...")
         core.rebuild_all_data()
     else:
         core.load_resources_into_memory()
@@ -49,6 +49,17 @@ def recommend(movie_id: str):
     """API lấy gợi ý - Bây giờ siêu nhanh vì chạy trên RAM"""
     try:
         result = core.get_recommendations(movie_id)
+        if "error" in result:
+            raise HTTPException(status_code=404, detail=result["error"])
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/recommend-user/{user_id}")
+def recommend_user(user_id: str, k: int = 20):
+    """API personalized recommendation theo user."""
+    try:
+        result = core.get_user_recommendations(user_id, k)
         if "error" in result:
             raise HTTPException(status_code=404, detail=result["error"])
         return result
