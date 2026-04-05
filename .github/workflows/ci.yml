@@ -48,9 +48,24 @@ jobs:
 
   # --- PHẦN CD: CHỈ CHẠY KHI CODE ĐÃ ỔN VÀ ĐANG Ở NHÁNH MAIN ---
   deploy:
-    needs: build-and-test # Phải đợi job trên xong và thành công mới chạy
+    needs: build-and-test
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
       - name: Trigger Render Deploy
         run: curl -X POST ${{ secrets.RENDER_DEPLOY_HOOK }}
+      - name: Deploy to EC2 via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_PRIVATE_KEY }}
+          script: |
+            echo "Bắt đầu tiến trình Deploy lên EC2..."
+            cd ~/movix-be
+            git pull origin main
+            docker compose down
+            docker compose up -d --build
+            docker system prune -f
+            
+            echo "Deploy thành công trên EC2!"
