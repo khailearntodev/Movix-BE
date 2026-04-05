@@ -6,7 +6,7 @@ Backend API cho nền tảng streaming phim Movix, được xây dựng với Ex
 
 ## 🚀 Quick Start
 
-### Khởi động với Docker (Khuyến nghị)
+### Khởi động với Docker (Khuyến nghị) 
 
 ```bash
 # Clone repository
