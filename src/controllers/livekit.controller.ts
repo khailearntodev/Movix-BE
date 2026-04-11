@@ -5,7 +5,7 @@ const liveKitService = new LiveKitService();
 
 export const generateAccessToken = async (req: Request, res: Response) => {
     try {
-        const { roomId } = req.body;
+        const roomId = req.query.roomId as string;
         if (!roomId) {
             return res.status(400).json({ message: "Thiếu roomId" });
         }

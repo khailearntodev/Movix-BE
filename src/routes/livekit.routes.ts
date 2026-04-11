@@ -5,6 +5,6 @@ import { generateAccessToken } from '../controllers/livekit.controller';
 const router = Router();
 
 //Get token for livekit
-router.get('/livekit/generate-liveToken', authenticateToken, generateAccessToken);
+router.get('/generate-liveToken', authenticateToken, generateAccessToken);
 
 export default router;
