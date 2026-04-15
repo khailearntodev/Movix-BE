@@ -7,7 +7,8 @@ export const getAllSubscriptions = async (req: Request, res: Response) => {
         const page = parseInt(req.query.page as string) || 1;
         const take = parseInt(req.query.take as string) || 10;
         const statusFilter = req.query.status as SubscriptionStatus | undefined;
-        const result = await SubscriptionService.getAllSubscriptions(page, take, statusFilter);
+        const planIdFilter = req.query.planId as string | undefined;
+        const result = await SubscriptionService.getAllSubscriptions(page, take, statusFilter, planIdFilter);
         res.status(200).json(result);
     } catch (error: any) {
         console.error('Error fetching subscriptions:', error);

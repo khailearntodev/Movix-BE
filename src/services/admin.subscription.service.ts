@@ -12,9 +12,12 @@ export const SubscriptionService = {
     page: number,
     take: number,
     statusFilter?: SubscriptionStatus,
+    planId?: string,
   ) => {
     const skip = (page - 1) * take;
-    const whereCondition = statusFilter ? { status: statusFilter } : {};
+    const whereCondition: any = {};
+    if (statusFilter) whereCondition.status = statusFilter;
+    if (planId) whereCondition.plan_id = planId;
 
     const [subscriptions, total] = await prisma.$transaction([
       prisma.userSubscription.findMany({
