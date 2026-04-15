@@ -2,6 +2,12 @@ import { SubscriptionStatus } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 
 export const SubscriptionService = {
+  getAllSubscriptionPlans: async () => {
+    return prisma.subscriptionPlan.findMany({
+      orderBy: { price: 'asc' }
+    });
+  },
+
   getAllSubscriptions: async (
     page: number,
     take: number,

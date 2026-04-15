@@ -110,6 +110,16 @@ export const getSubscriptionDetails = async (req: Request, res: Response) => {
     }
 };
 
+export const getAllSubscriptionPlans = async (req: Request, res: Response) => {
+    try {
+        const plans = await SubscriptionService.getAllSubscriptionPlans();
+        res.status(200).json(plans);
+    } catch (error: any) {
+        console.error('Error fetching subscription plans:', error);
+        res.status(500).json({ message: error.message || 'Error fetching subscription plans' });
+    }
+};
+
 export const updateSubscriptionPlan = async (req: Request, res: Response) => {
     try {
         const planId = req.params.id;
