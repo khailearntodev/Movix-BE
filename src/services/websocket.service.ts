@@ -21,6 +21,7 @@ export class WebSocketService {
             "http://localhost:3000",          
             "https://movix-fe.vercel.app",  
             "https://movix-be.onrender.com", 
+            "http://13.212.20.97:5000",
             process.env.CLIENT_URL,      
             process.env.FRONTEND_LAN_URL     
           ];

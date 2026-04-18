@@ -24,6 +24,8 @@ import { setNotificationService } from './utils/notify/notification.helper';
 import notificationRoutes from './routes/notification.routes';
 import watchPartyRoutes from './routes/watch-party.routes';
 import subscriptionPlanRoutes from './routes/subscription-plan.routes';
+import livekitRoutes from './routes/livekit.routes';
+import adminSubscriptionRoutes from './routes/admin.subscription.routes';
 import { startCronJobs } from './services/cron.service';
 
 const app = express();
@@ -68,6 +70,8 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/watch-party', watchPartyRoutes);
 app.use('/api/subscription-plans', subscriptionPlanRoutes);
 
+app.use("/api/livekit", livekitRoutes);
+app.use("/api/admin/subscriptions", adminSubscriptionRoutes);
 app.get('/api', (req, res) => {
   res.send('Movix BE is running!');
 });
