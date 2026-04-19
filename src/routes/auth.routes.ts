@@ -1,5 +1,6 @@
 import express from 'express';
 import * as authController from '../controllers/auth.controller';
+import { authenticateToken } from '../middlewares/auth.middleware';
 
 const router = express.Router();
 
@@ -29,5 +30,11 @@ router.post('/logout', authController.logout);
 
 // POST /api/auth/refresh-token
 router.post('/refresh-token', authController.refreshToken);
+
+// GET /api/auth/devices
+router.get('/devices', authenticateToken, authController.getDevices);
+
+// DELETE /api/auth/devices/:tokenId
+router.delete('/devices/:tokenId', authenticateToken, authController.logoutDevice);
 
 export default router;

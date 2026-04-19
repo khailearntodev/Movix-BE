@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import * as authService from '../services/auth.service';
+import { getDeviceInfo, getIpAddress } from '../utils/device.util';
 
 const REFRESH_TOKEN_EXPIRES_DAYS = 7;
 const RESET_TOKEN_EXPIRATION_MINUTES = 15;
@@ -47,7 +48,11 @@ export const verify = async (req: Request, res: Response) => {
 export const login = async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
-    const authResponse: any = await authService.login(email, password);
+    
+    const deviceInfo = getDeviceInfo(req);
+    const ipAddress = getIpAddress(req);
+
+    const authResponse: any = await authService.login(email, password, deviceInfo, ipAddress);
     const { accessToken, refreshToken, ...userData } = authResponse;
 
     const cookieOptions = getCookieOptions();
@@ -183,7 +188,8 @@ export const refreshToken = async (req: Request, res: Response) => {
       return res.status(401).json({ message: 'Không tìm thấy Refresh Token.' });
     }
 
-    const newTokens = await authService.renewTokenOnly(refreshToken); 
+    const ipAddress = getIpAddress(req);
+    const newTokens = await authService.renewTokenOnly(refreshToken, ipAddress); 
 
     const cookieOptions = getCookieOptions();
 
@@ -230,5 +236,44 @@ export const resetPasswordWithOtp = async (req: Request, res: Response) => {
     }
     console.error('Reset Password with OTP error:', error);
     res.status(500).json({ message: 'Lỗi server khi đặt lại mật khẩu bằng OTP.' });
+  }
+};
+
+export const getDevices = async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).userId;
+    if (!userId) {
+      return res.status(401).json({ message: 'Chưa xác thực' });
+    }
+    const devices = await authService.getActiveDevices(userId);
+
+    res.status(200).json({
+      success: true,
+      data: devices
+    });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const logoutDevice = async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).userId;
+    if (!userId) {
+      return res.status(401).json({ message: 'Chưa xác thực' });
+    }
+    const { tokenId } = req.params;
+
+    await authService.revokeDevice(userId, tokenId);
+
+    res.status(200).json({
+      success: true,
+      message: 'Đăng xuất khỏi thiết bị thành công'
+    });
+  } catch (error: any) {
+    if (error.message === 'Device not found or already logged out') {
+      return res.status(404).json({ message: error.message });
+    }
+    res.status(500).json({ message: error.message });
   }
 };
