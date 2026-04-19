@@ -4,59 +4,31 @@ import { authenticateToken } from '../middlewares/auth.middleware';
 
 const router = express.Router();
 
-// Áp dụng authentication cho tất cả routes
-router.use(authenticateToken);
+// ==================== PUBLIC ROUTES ====================
+// PUBLIC - Lấy danh sách gói đăng ký đang hoạt động (cho mọi người xem, không bắt buộc login)
+router.get('/', subscriptionPlanController.getAllSubscriptionPlans);
+
+// Lấy chi tiết gói đăng ký theo ID
+router.get('/:id', subscriptionPlanController.getSubscriptionPlanById);
+
 
 // ==================== ADMIN ROUTES ====================
+// Áp dụng authentication cho các operation thay đổi dữ liệu
+router.use(authenticateToken);
 
 // CREATE - Tạo mới gói đăng ký 
-router.post('/admin/subscription-plans', subscriptionPlanController.createSubscriptionPlan);
-
-// READ - Lấy tất cả gói đăng ký
-router.get('/admin/subscription-plans', subscriptionPlanController.getAllSubscriptionPlans);
-
-// READ - Lấy chi tiết gói đăng ký theo ID
-router.get(
-  '/admin/subscription-plans/:id',
-  subscriptionPlanController.getSubscriptionPlanById,
-);
+router.post('/', subscriptionPlanController.createSubscriptionPlan);
 
 // UPDATE - Cập nhật gói đăng ký
-router.put(
-  '/admin/subscription-plans/:id',
-  subscriptionPlanController.updateSubscriptionPlan,
-);
+router.put('/:id', subscriptionPlanController.updateSubscriptionPlan);
 
 // UPDATE - Vô hiệu hóa gói đăng ký
-router.patch(
-  '/admin/subscription-plans/:id/deactivate',
-  subscriptionPlanController.deactivateSubscriptionPlan,
-);
+router.patch('/:id/deactivate', subscriptionPlanController.deactivateSubscriptionPlan);
 
 // UPDATE - Kích hoạt lại gói đăng ký
-router.patch(
-  '/admin/subscription-plans/:id/activate',
-  subscriptionPlanController.activateSubscriptionPlan,
-);
+router.patch('/:id/activate', subscriptionPlanController.activateSubscriptionPlan);
 
 // DELETE - Xóa gói đăng ký
-router.delete(
-  '/admin/subscription-plans/:id',
-  subscriptionPlanController.deleteSubscriptionPlan,
-);
-
-// ==================== PUBLIC ROUTES ====================
-
-// PUBLIC - Lấy danh sách gói đăng ký đang hoạt động (cho khách hàng)
-router.get('/subscription-plans', async (req, res) => {
-  try {
-    const { isActive } = req.query;
-    const filters: any = { isActive: true };
-    
-    const plans = await subscriptionPlanController.getAllSubscriptionPlans(req, res);
-  } catch (error) {
-    res.status(500).json({ message: 'Lỗi máy chủ nội bộ.' });
-  }
-});
+router.delete('/:id', subscriptionPlanController.deleteSubscriptionPlan);
 
 export default router;
