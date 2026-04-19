@@ -14,7 +14,7 @@ const RESET_TOKEN_EXPIRATION_MINUTES = 15;
 // Hàm tạo OTP - CHo đăng ký và xác thực email
 const generateOTP = () => crypto.randomInt(100000, 999999).toString();
 
-const generateTokens = async (userId: string) => {
+const generateTokens = async (userId: string, deviceInfo?: any, ipAddress?: string) => {
   // 1. Tạo Access Token
   const accessToken = jwt.sign({ userId }, JWT_SECRET, {
     expiresIn: JWT_EXPIRES_IN,
@@ -37,6 +37,9 @@ const generateTokens = async (userId: string) => {
       token: refreshToken,
       expiresAt,
       userId,
+      device_info: deviceInfo || null,
+      ip_address: ipAddress || null,
+      last_used_at: new Date(),
     },
   });
 
@@ -133,7 +136,7 @@ export const verifyEmail = async (email: string, otp: string) => {
   return true;
 };
 
-export const login = async (email: string, password: string) => {
+export const login = async (email: string, password: string, deviceInfo?: any, ipAddress?: string) => {
   // 1. Tìm user
   const user = await prisma.user.findUnique({
     where: { email },
@@ -169,7 +172,7 @@ export const login = async (email: string, password: string) => {
   });
 
   // 5. Tạo tokens
-  const tokens = await generateTokens(user.id);
+  const tokens = await generateTokens(user.id, deviceInfo, ipAddress);
 
   // 6. Trả về AuthResponse
   return {
@@ -355,7 +358,7 @@ export const logout = async (refreshToken: string) => {
   return true;
 };
 
-export const renewAccessToken = async (userId: string, refreshToken: string) => {
+export const renewAccessToken = async (userId: string, refreshToken: string, ipAddress?: string) => {
   const tokenRecord = await prisma.refreshToken.findFirst({
     where: {
       userId: userId, 
@@ -363,7 +366,7 @@ export const renewAccessToken = async (userId: string, refreshToken: string) => 
     },
   });
 
-  if (!tokenRecord) {
+  if (!tokenRecord || tokenRecord.is_revoked) {
     throw new Error('REFRESH_TOKEN_NOT_FOUND');
   }
 
@@ -371,17 +374,19 @@ export const renewAccessToken = async (userId: string, refreshToken: string) => 
     await prisma.refreshToken.delete({ where: { id: tokenRecord.id } });
     throw new Error('REFRESH_TOKEN_EXPIRED');
   }
-  const newTokens = await generateTokens(userId); 
   
+  const newTokens = await generateTokens(userId, tokenRecord.device_info, ipAddress || tokenRecord.ip_address || undefined); 
+  await prisma.refreshToken.delete({ where: { id: tokenRecord.id } }); // Remove old token
+
   return newTokens;
 };
 
-export const renewTokenOnly = async (refreshToken: string) => {
+export const renewTokenOnly = async (refreshToken: string, ipAddress?: string) => {
   const tokenRecord = await prisma.refreshToken.findUnique({
     where: { token: refreshToken },
   });
 
-  if (!tokenRecord) {
+  if (!tokenRecord || tokenRecord.is_revoked) {
     throw new Error('REFRESH_TOKEN_NOT_FOUND');
   }
 
@@ -389,7 +394,52 @@ export const renewTokenOnly = async (refreshToken: string) => {
     await prisma.refreshToken.delete({ where: { id: tokenRecord.id } });
     throw new Error('REFRESH_TOKEN_EXPIRED');
   }
-  const newTokens = await generateTokens(tokenRecord.userId);
+
+  const newTokens = await generateTokens(tokenRecord.userId, tokenRecord.device_info, ipAddress || tokenRecord.ip_address || undefined);
+  await prisma.refreshToken.delete({ where: { id: tokenRecord.id } }); // Remove old token
   
   return newTokens;
+};
+
+export const getActiveDevices = async (userId: string) => {
+  const devices = await prisma.refreshToken.findMany({
+    where: {
+      userId: userId,
+      is_revoked: false,
+      expiresAt: {
+        gt: new Date() // Chỉ lấy token chưa hết hạn
+      }
+    },
+    select: {
+      id: true,
+      device_info: true,
+      ip_address: true,
+      last_used_at: true,
+      createdAt: true
+    },
+    orderBy: {
+      last_used_at: 'desc'
+    }
+  });
+
+  return devices;
+};
+
+export const revokeDevice = async (userId: string, tokenId: string) => {
+  const result = await prisma.refreshToken.updateMany({
+    where: {
+      id: tokenId,
+      userId: userId, 
+      is_revoked: false
+    },
+    data: {
+      is_revoked: true
+    }
+  });
+
+  if (result.count === 0) {
+    throw new Error('Device not found or already logged out');
+  }
+
+  return true;
 };
