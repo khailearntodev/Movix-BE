@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import * as userService from '../services/user.service';
+import * as subscriptionService from '../services/subscription.service';
 
 
 export const getMyProfile = async (req: Request, res: Response) => {
@@ -19,6 +20,33 @@ export const getMyProfile = async (req: Request, res: Response) => {
     res.status(500).json({ message: 'Lỗi máy chủ.' });
   }
 };
+
+export const getMySubscription = async (req: Request, res: Response) => {
+  try {
+    const userId = req.userId;
+
+    if (!userId) {
+      return res.status(401).json({ message: 'Không thể xác định người dùng.' });
+    }
+
+    const subscription = await subscriptionService.getUserSubscription(userId);
+
+    if (!subscription) {
+      return res.status(200).json({
+        message: 'Người dùng chưa có gói đăng ký.',
+        data: null,
+      });
+    }
+
+    return res.status(200).json({
+      message: 'Lấy gói đăng ký hiện tại thành công.',
+      data: subscription,
+    });
+  } catch (error) {
+    return res.status(500).json({ message: 'Lỗi máy chủ nội bộ.' });
+  }
+};
+
 export const updateMyProfile = async (req: Request, res: Response) => {
   try {
     const userId = req.userId;

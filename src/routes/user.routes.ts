@@ -8,6 +8,7 @@ const router = express.Router();
 router.use(authenticateToken);
 
 router.get('/me', userController.getMyProfile);
+router.get('/me/subscription', userController.getMySubscription);
 router.put('/me', userController.updateMyProfile);
 router.post('/change-password', userController.changeMyPassword);
 
