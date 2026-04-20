@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { PaymentService } from '../services/payment.service';
+import { TransactionStatus } from '@prisma/client';
 
 export class PaymentController {
   
@@ -80,6 +81,47 @@ export class PaymentController {
     } catch (error) {
       console.error(error);
       return res.json({ error: -1, message: "failed", data: null });
+    }
+  }
+
+  static async getMyTransactions(req: Request, res: Response) {
+    try {
+      const userId = req.userId;
+      if (!userId) {
+        return res.status(401).json({ error: -1, message: 'Unauthorized', data: null });
+      }
+
+      const page = Number(req.query.page ?? 1);
+      const limit = Number(req.query.limit ?? 10);
+      const statusQuery = req.query.status as string | undefined;
+
+      let status: TransactionStatus | undefined;
+      if (statusQuery) {
+        const allowedStatus = Object.values(TransactionStatus);
+        if (!allowedStatus.includes(statusQuery as TransactionStatus)) {
+          return res.status(400).json({
+            error: -1,
+            message: `Invalid status. Allowed values: ${allowedStatus.join(', ')}`,
+            data: null,
+          });
+        }
+        status = statusQuery as TransactionStatus;
+      }
+
+      const result = await PaymentService.getMyTransactions(userId, page, limit, status);
+      return res.status(200).json({
+        error: 0,
+        message: 'ok',
+        data: result.items,
+        meta: result.meta,
+      });
+    } catch (error: any) {
+      console.error('PaymentController.getMyTransactions error:', error);
+      return res.status(500).json({
+        error: -1,
+        message: error.message || 'failed',
+        data: null,
+      });
     }
   }
 
