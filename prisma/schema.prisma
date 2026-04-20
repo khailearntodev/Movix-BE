@@ -170,7 +170,7 @@ model RefreshToken {
   userId    String   @db.Uuid
 
   // --- [DEVICE MANAGEMENT] ---
-  device_info String? // "iPhone 14 - iOS 17" hoặc "Chrome - Windows 10"
+  device_info Json?    // Lưu trữ cấu trúc: { deviceId, deviceName, deviceType, browser, os }
   ip_address  String?
   is_revoked  Boolean @default(false)
   last_used_at DateTime @default(now())
