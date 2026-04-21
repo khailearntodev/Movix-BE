@@ -5,6 +5,52 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+export async function checkChatbotLimit(userId: string) {
+  const activeSub = await prisma.userSubscription.findFirst({
+    where: { user_id: userId, status: "ACTIVE", end_date: { gt: new Date() } },
+    include: { plan: true },
+  });
+
+  let maxQuestions = 0;
+
+  if (activeSub && activeSub.plan.benefits) {
+    const benefits = activeSub.plan.benefits as Record<string, any>;
+    maxQuestions = benefits?.chatbot_ai?.max_questions_per_day ?? 0;
+  } else {
+    const freeConfig = await prisma.systemConfig.findUnique({
+      where: { key: "FREE_TIER_BENEFITS" },
+    });
+
+    if (freeConfig && freeConfig.value) {
+      const value = freeConfig.value as Record<string, any>;
+      maxQuestions = value?.chatbot_ai?.max_questions_per_day ?? 10;
+    }
+  }
+
+  if (maxQuestions === -1) {
+    return { allowed: true, remaining: -1 };
+  }
+
+  const startOfDay = new Date();
+  startOfDay.setHours(0, 0, 0, 0);
+
+  const endOfDay = new Date();
+  endOfDay.setHours(23, 59, 59, 999);
+
+  const todayQuestionCount = await prisma.chatbotLog.count({
+    where: {
+      user_id: userId,
+      created_at: { gte: startOfDay, lte: endOfDay },
+    },
+  });
+
+  const isAllowed = todayQuestionCount < maxQuestions;
+  return {
+    allowed: isAllowed,
+    remaining: isAllowed ? maxQuestions - todayQuestionCount : 0,
+  };
+}
+
 async function generateContentSafe(prompt: string, maxRetries = 2) {
   const modelsToTry = [
     "gemini-2.5-flash",
@@ -139,12 +185,12 @@ export const chatWithAI = async (userId: string, userMessage: string) => {
     if (uniqueSlugs.length > 0) {
       historyMovies = await prisma.movie.findMany({
         where: { slug: { in: uniqueSlugs } },
-        include: { 
+        include: {
           movie_genres: { include: { genre: true } },
-          movie_people: { 
+          movie_people: {
             take: 5,
-            include: { person: true }
-          }
+            include: { person: true },
+          },
         },
       });
     }
@@ -169,7 +215,9 @@ export const chatWithAI = async (userId: string, userMessage: string) => {
 
     const moviesContext = allMoviesToProvide
       .map((m, index) => {
-        const actors = m.movie_people?.map((mp: any) => mp.person.name).join(", ") || "Chưa rõ";
+        const actors =
+          m.movie_people?.map((mp: any) => mp.person.name).join(", ") ||
+          "Chưa rõ";
         return `[Phim tham khảo] Tên: ${m.title}. Đường dẫn: /movies/${m.slug}. Diễn viên: ${actors}. Mô tả: ${m.description || "Đang cập nhật"}`;
       })
       .join("\n\n");
@@ -216,7 +264,11 @@ export const chatWithAI = async (userId: string, userMessage: string) => {
   }
 };
 
-export const searchMoviesByAI = async (query: string, limit: number = 5) => {
+export const searchMoviesByAI = async (
+  query: string,
+  limit: number = 5,
+  userId?: string,
+) => {
   console.log("👉 Đang tìm kiếm AI với từ khóa:", query);
   try {
     const queryEmbeddingArray = await generateEmbedding(query);
@@ -249,22 +301,34 @@ export const searchMoviesByAI = async (query: string, limit: number = 5) => {
     const movieIds = similarMovies.map((m) => m.id);
     const moviesWithGenres = await prisma.movie.findMany({
       where: { id: { in: movieIds } },
-      include: { 
+      include: {
         movie_genres: { include: { genre: true } },
-        movie_people: { 
+        movie_people: {
           take: 5,
-          include: { person: true }
-        }
+          include: { person: true },
+        },
       },
     });
 
-    return similarMovies.map((rawMovie) => {
+    const result = similarMovies.map((rawMovie) => {
       const fullMovie = moviesWithGenres.find((m) => m.id === rawMovie.id);
       return {
         ...fullMovie,
         similarity_score: rawMovie.similarity_score,
       };
     });
+
+    if (userId) {
+      await prisma.chatbotLog.create({
+        data: {
+          user_id: userId,
+          user_message: `[Text Search] ${query}`,
+          bot_response: `Đã tìm thấy ${result.length} phim liên quan.`,
+        },
+      });
+    }
+
+    return result;
   } catch (error: any) {
     console.error("Lỗi AI Vector Search:", error.message || error);
     return [];
@@ -274,6 +338,7 @@ export const searchMoviesByAI = async (query: string, limit: number = 5) => {
 export const searchMoviesByVoice = async (
   audioBuffer: Buffer,
   mimeType: string,
+  userId?: string,
 ) => {
   try {
     const promptText = `Bạn là chuyên gia nhận diện giọng nói. 
@@ -320,8 +385,18 @@ TRẢ VỀ JSON:
         })),
       },
       include: { movie_genres: { include: { genre: true } } },
-      take: 20, // Trả về 20 kết quả tốt nhất
+      take: 20,
     });
+
+    if (userId) {
+      await prisma.chatbotLog.create({
+        data: {
+          user_id: userId,
+          user_message: `[Voice Search] ${recognizedText}`,
+          bot_response: `Đã tìm thấy ${foundMovies.length} phim phù hợp.`,
+        },
+      });
+    }
 
     return { movies: foundMovies, recognizedText };
   } catch (error: any) {
@@ -333,6 +408,7 @@ TRẢ VỀ JSON:
 export const searchMoviesByImage = async (
   imageBuffer: Buffer,
   mimeType: string,
+  userId?: string,
 ) => {
   try {
     const movies = await prisma.movie.findMany({
@@ -380,9 +456,21 @@ Chỉ trả về JSON mảng STT: [1, 5, 8]`;
       include: { movie_genres: { include: { genre: true } } },
     });
 
-    return validIds
+    const resultMovies = validIds
       .map((id: string) => foundMovies.find((m) => m.id === id))
       .filter((m: any): m is any => !!m);
+
+    if (userId) {
+      await prisma.chatbotLog.create({
+        data: {
+          user_id: userId,
+          user_message: `[Image Search] Tìm kiếm bằng hình ảnh.`,
+          bot_response: `Đã tìm thấy ${resultMovies.length} phim phù hợp.`,
+        },
+      });
+    }
+
+    return resultMovies;
   } catch (error: any) {
     console.error("AI Image Search Error:", error);
     return [];
