@@ -77,6 +77,7 @@ export class WebSocketService {
       avatar: m.user.avatar_url,
       role: m.role,
       online: m.is_online,
+      isMuted: m.is_muted,
     }));
   }
 
