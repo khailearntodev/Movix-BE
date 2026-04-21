@@ -163,6 +163,7 @@ export const watchPartyService = {
         host: room.host_user.display_name || room.host_user.username,
         hostAvatar: room.host_user.avatar_url,
         viewers: room._count.members,
+        maxParticipants: room.max_participants,
         isPrivate: room.is_private,
         status: filter,
         scheduledAt: room.scheduled_at,
