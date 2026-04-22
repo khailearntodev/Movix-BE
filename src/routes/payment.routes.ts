@@ -7,6 +7,9 @@ const router = express.Router();
 // Tạo link thanh toán
 router.post('/checkout', authenticateToken, PaymentController.createCheckoutSession);
 
+// Lịch sử giao dịch của user hiện tại
+router.get('/my-transactions', authenticateToken, PaymentController.getMyTransactions);
+
 // Lấy thông tin thanh toán (của 1 order)
 router.get('/info/:orderId', PaymentController.getPaymentInfo);
 

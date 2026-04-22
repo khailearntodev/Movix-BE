@@ -1,4 +1,4 @@
-import { Prisma } from "@prisma/client";
+import { Prisma, TransactionStatus } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 import { PaymentFactory } from "../factories/payment.factory";
 
@@ -69,6 +69,56 @@ export class PaymentService {
       throw new Error(`Cổng thanh toán ${paymentMethod} không hỗ trợ confirm webhook`);
     }
     return await paymentProvider.confirmWebhook(webhookUrl);
+  }
+
+  static async getMyTransactions(
+    userId: string,
+    page: number = 1,
+    limit: number = 10,
+    status?: TransactionStatus,
+  ) {
+    const safePage = Number.isNaN(page) || page < 1 ? 1 : page;
+    const safeLimit = Number.isNaN(limit) || limit < 1 ? 10 : Math.min(limit, 100);
+    const skip = (safePage - 1) * safeLimit;
+
+    const where: Prisma.TransactionWhereInput = {
+      user_id: userId,
+      ...(status ? { status } : {}),
+    };
+
+    const [transactions, totalItems] = await prisma.$transaction([
+      prisma.transaction.findMany({
+        where,
+        include: {
+          plan: {
+            select: {
+              id: true,
+              name: true,
+              price: true,
+              duration_days: true,
+              currency: true,
+              level: true,
+            },
+          },
+        },
+        orderBy: {
+          created_at: 'desc',
+        },
+        skip,
+        take: safeLimit,
+      }),
+      prisma.transaction.count({ where }),
+    ]);
+
+    return {
+      items: transactions,
+      meta: {
+        totalItems,
+        currentPage: safePage,
+        limit: safeLimit,
+        totalPages: Math.ceil(totalItems / safeLimit),
+      },
+    };
   }
 
   // Hàm xử lý webhook chung từ các Payment Provider
