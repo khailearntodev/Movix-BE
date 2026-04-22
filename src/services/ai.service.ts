@@ -11,19 +11,32 @@ export async function checkChatbotLimit(userId: string) {
     include: { plan: true },
   });
 
-  let maxQuestions = 0;
+  let maxQuestions = 10;
 
-  if (activeSub && activeSub.plan.benefits) {
+  if (activeSub && activeSub.plan) {
     const benefits = activeSub.plan.benefits as Record<string, any>;
-    maxQuestions = benefits?.chatbot_ai?.max_questions_per_day ?? 0;
+    maxQuestions = benefits?.chatbot_ai?.max_questions_per_day ?? 10;
   } else {
-    const freeConfig = await prisma.systemConfig.findUnique({
-      where: { key: "FREE_TIER_BENEFITS" },
-    });
+    try {
+      let freeConfig = await prisma.systemConfig.findFirst({
+        where: { key: "FREE_TIER_BENEFITS" },
+      });
+      
+      if (!freeConfig) {
+        freeConfig = await prisma.systemConfig.create({
+          data: {
+            id: '11111111-2222-3333-4444-555555555555',
+            key: "FREE_TIER_BENEFITS",
+            value: { chatbot_ai: { max_questions_per_day: 10 } },
+            description: "Default free tier benefits (Auto-created)"
+          }
+        });
+      }
 
-    if (freeConfig && freeConfig.value) {
       const value = freeConfig.value as Record<string, any>;
       maxQuestions = value?.chatbot_ai?.max_questions_per_day ?? 10;
+    } catch (error) {
+      maxQuestions = 10;
     }
   }
 
