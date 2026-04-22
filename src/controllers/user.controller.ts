@@ -2,7 +2,6 @@ import { Request, Response } from 'express';
 import * as userService from '../services/user.service';
 import * as subscriptionService from '../services/subscription.service';
 
-
 export const getMyProfile = async (req: Request, res: Response) => {
   try {
     const userId = req.userId; 
@@ -98,3 +97,4 @@ export const changeMyPassword = async (req: Request, res: Response) => {
     res.status(500).json({ message: 'Lỗi máy chủ nội bộ.' });
   }
 };
+
