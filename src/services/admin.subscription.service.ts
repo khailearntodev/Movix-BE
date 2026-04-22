@@ -145,12 +145,14 @@ export const SubscriptionService = {
     name: string;
     description?: string;
     price: number;
+    currency?: string;
     duration_days: number;
     level?: number;
     benefits?: any;
     can_create_watch_party?: boolean;
     max_watch_party_participants?: number;
     can_kick_mute_members?: boolean;
+    is_active?: boolean;
   }) => {
     // Validate 1: Kiểm tra tên gói cước đã tồn tại chưa
     const existingPlan = await prisma.subscriptionPlan.findUnique({
@@ -171,13 +173,14 @@ export const SubscriptionService = {
         name: data.name,
         description: data.description,
         price: data.price,
+        currency: data.currency || 'VND',
         duration_days: data.duration_days,
         level: data.level || 1,
         benefits: data.benefits,
         can_create_watch_party: data.can_create_watch_party || false,
         max_watch_party_participants: data.max_watch_party_participants || 0,
         can_kick_mute_members: data.can_kick_mute_members || false,
-        is_active: true,
+        is_active: data.is_active ?? true,
       },
     });
   },
@@ -250,12 +253,14 @@ export const SubscriptionService = {
         name: data.name || existingPlan.name,
         description: data.description || existingPlan.description,
         price: data.price !== undefined ? data.price : existingPlan.price,
+          currency: data.currency !== undefined ? data.currency : existingPlan.currency,
         duration_days: data.duration_days !== undefined ? data.duration_days : existingPlan.duration_days,
         level: data.level !== undefined ? data.level : existingPlan.level,
         benefits: data.benefits || existingPlan.benefits,
         can_create_watch_party: data.can_create_watch_party !== undefined ? data.can_create_watch_party : existingPlan.can_create_watch_party,
         max_watch_party_participants: data.max_watch_party_participants !== undefined ? data.max_watch_party_participants : existingPlan.max_watch_party_participants,
         can_kick_mute_members: data.can_kick_mute_members !== undefined ? data.can_kick_mute_members : existingPlan.can_kick_mute_members,
+          is_active: data.is_active !== undefined ? data.is_active : existingPlan.is_active,
       },
     });
   }
