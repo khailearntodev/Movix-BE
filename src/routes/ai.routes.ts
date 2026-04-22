@@ -9,9 +9,10 @@ const router = Router();
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
+router.get('/limit', authenticateToken, aiController.checkLimit);
 router.post('/chat', authenticateToken, aiController.chat);
-router.post('/search', aiController.searchMovies);
-router.post('/search-voice', upload.single('audio'), aiController.searchMoviesVoice);
-router.post('/search-image', upload.single('image'), searchImage);
+router.post('/search', authenticateToken, aiController.searchMovies);
+router.post('/search-voice', authenticateToken, upload.single('audio'), aiController.searchMoviesVoice);
+router.post('/search-image', authenticateToken, upload.single('image'), searchImage);
 
 export default router;
