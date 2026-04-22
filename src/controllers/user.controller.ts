@@ -1,9 +1,6 @@
 import { Request, Response } from 'express';
 import * as userService from '../services/user.service';
-import { getUserSubscription } from '../services/subscription.service';
-
 import * as subscriptionService from '../services/subscription.service';
-
 
 export const getMyProfile = async (req: Request, res: Response) => {
   try {
@@ -101,20 +98,3 @@ export const changeMyPassword = async (req: Request, res: Response) => {
   }
 };
 
-export const getMySubscription = async (req: Request, res: Response) => {
-  try {
-    const userId = req.userId;
-    if (!userId) {
-      return res.status(401).json({ message: 'Không thể xác định người dùng.' });
-    }
-
-    const subscription = await getUserSubscription(userId);
-    res.status(200).json({
-      message: 'Lấy gói đăng ký hiện tại thành công.',
-      data: subscription,
-    });
-  } catch (error: any) {
-    console.error('Error fetching my subscription:', error);
-    res.status(500).json({ message: 'Lỗi khi lấy thông tin gói đăng ký.' });
-  }
-};
