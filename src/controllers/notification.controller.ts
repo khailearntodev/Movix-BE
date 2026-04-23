@@ -1,11 +1,13 @@
 import { Request, Response } from 'express';
 import { NotificationService } from '../services/notification.service';
 import { PushNotificationService } from '../services/push-notification.service';
+import { ExpoPushService } from '../services/expo-push.service';
 import { getNotificationService } from '../utils/notify/notification.helper';
 
 export class NotificationController {
 
     private pushNotificationService = new PushNotificationService();
+    private expoPushService = new ExpoPushService();
     private get notificationService() {
         return getNotificationService();
     }
@@ -89,6 +91,40 @@ export class NotificationController {
         } catch (error) {
             console.error('Subscribe error:', error);
             res.status(500).json({ message: 'Failed to subscribe' });
+        }
+    }
+
+    async subscribeexpo(req: Request, res: Response) {
+        try {
+            const userId = req.userId!;
+            const { expoToken } = req.body;
+            
+            if (!expoToken) {
+                return res.status(400).json({ message: 'Push token is required' });
+            }
+
+            await this.expoPushService.subscribe(userId, expoToken);
+            res.status(201).json({ success: true, message: 'Subscribed to mobile push notifications' });
+        } catch (error) {
+            console.error('Subscribe expo error:', error);
+            res.status(500).json({ message: 'Failed to subscribe expo' });
+        }
+    }
+
+    async unregisterDevice(req: Request, res: Response) {
+        try {
+            const userId = req.userId!;
+            const { token } = req.body;
+            
+            if (!token) {
+                return res.status(400).json({ message: 'Token is required' });
+            }
+
+            await this.notificationService.unregisterDevice(userId, token);
+            res.status(200).json({ success: true, message: 'Device unregistered successfully' });
+        } catch (error) {
+            console.error('Unregister device error:', error);
+            res.status(500).json({ message: 'Failed to unregister device' });
         }
     }
 

@@ -52,7 +52,7 @@ export class PushNotificationService {
         }
 
         const subscriptions = await prisma.pushSubscription.findMany({
-            where: { user_id: userId }
+            where: { user_id: userId, platform: 'WEB' }
         });
 
         if (subscriptions.length === 0) return;
@@ -67,6 +67,7 @@ export class PushNotificationService {
         });
 
         const promises = subscriptions.map(async (sub) => {
+            if (!sub.endpoint || !sub.p256dh || !sub.auth) return;
             try {
                 await webpush.sendNotification({
                     endpoint: sub.endpoint,
