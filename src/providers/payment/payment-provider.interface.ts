@@ -2,6 +2,7 @@ export interface WebhookResult {
   orderCode: string;
   isSuccess: boolean;
   amount?: number;
+  metadata?: any;
 }
 
 export interface PaymentCreateResult {
