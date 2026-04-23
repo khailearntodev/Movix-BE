@@ -14,7 +14,7 @@ const RESET_TOKEN_EXPIRATION_MINUTES = 15;
 // Hàm tạo OTP - CHo đăng ký và xác thực email
 const generateOTP = () => crypto.randomInt(100000, 999999).toString();
 
-const generateTokens = async (userId: string, deviceInfo?: any, ipAddress?: string) => {
+const generateTokens = async (userId: string, deviceInfo?: any, ipAddress?: string, oldTokenId?: string) => {
   // 1. Tạo Access Token
   const accessToken = jwt.sign({ userId }, JWT_SECRET, {
     expiresIn: JWT_EXPIRES_IN,
@@ -32,6 +32,39 @@ const generateTokens = async (userId: string, deviceInfo?: any, ipAddress?: stri
       expiresAt: { lt: new Date() }
     },
   });
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    include: { role: true },
+  });
+  const isAdmin = user?.role?.name?.toLowerCase() === 'admin';
+
+  // 4. Kiểm tra giới hạn thiết bị (Bỏ qua nếu là admin)
+  if (!isAdmin) {
+    const activeSub = await prisma.userSubscription.findFirst({
+      where: {
+        user_id: userId,
+        status: 'ACTIVE',
+        end_date: { gt: new Date() }
+      },
+      include: { plan: true }
+    });
+    
+    const maxDevices = activeSub?.plan?.max_devices ?? 1;
+
+    const activeSessionsCount = await prisma.refreshToken.count({
+      where: {
+        userId,
+        is_revoked: false,
+        ...(oldTokenId ? { id: { not: oldTokenId } } : {})
+      }
+    });
+
+    if (activeSessionsCount >= maxDevices) {
+      throw new Error('DEVICE_LIMIT_REACHED');
+    }
+  }
+
   await prisma.refreshToken.create({
     data: {
       token: refreshToken,
@@ -375,7 +408,12 @@ export const renewAccessToken = async (userId: string, refreshToken: string, ipA
     throw new Error('REFRESH_TOKEN_EXPIRED');
   }
   
-  const newTokens = await generateTokens(userId, tokenRecord.device_info, ipAddress || tokenRecord.ip_address || undefined); 
+  const newTokens = await generateTokens(
+    userId, 
+    tokenRecord.device_info, 
+    ipAddress || tokenRecord.ip_address || undefined,
+    tokenRecord.id
+  ); 
   await prisma.refreshToken.delete({ where: { id: tokenRecord.id } }); // Remove old token
 
   return newTokens;
@@ -395,7 +433,12 @@ export const renewTokenOnly = async (refreshToken: string, ipAddress?: string) =
     throw new Error('REFRESH_TOKEN_EXPIRED');
   }
 
-  const newTokens = await generateTokens(tokenRecord.userId, tokenRecord.device_info, ipAddress || tokenRecord.ip_address || undefined);
+  const newTokens = await generateTokens(
+    tokenRecord.userId, 
+    tokenRecord.device_info, 
+    ipAddress || tokenRecord.ip_address || undefined,
+    tokenRecord.id
+  );
   await prisma.refreshToken.delete({ where: { id: tokenRecord.id } }); // Remove old token
   
   return newTokens;

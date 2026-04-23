@@ -87,6 +87,12 @@ export const login = async (req: Request, res: Response) => {
     if (error.message === 'INVALID_CREDENTIALS') {
       return res.status(400).json({ message: 'Email hoặc mật khẩu không đúng.' });
     }
+    if (error.message === 'DEVICE_LIMIT_REACHED') {
+      return res.status(403).json({ 
+        code: 'DEVICE_LIMIT_REACHED', 
+        message: 'Đã đạt giới hạn thiết bị đăng nhập. Vui lòng đăng xuất khỏi thiết bị khác hoặc nâng cấp gói cước.' 
+      });
+    }
     res.status(500).json({ message: 'Lỗi máy chủ nội bộ.' });
   }
 };
@@ -209,6 +215,12 @@ export const refreshToken = async (req: Request, res: Response) => {
     });
 
   } catch (error: any) {
+    if (error.message === 'DEVICE_LIMIT_REACHED') {
+      return res.status(403).json({
+        code: 'DEVICE_LIMIT_REACHED',
+        message: 'Đã đạt giới hạn thiết bị đăng nhập. Vui lòng đăng xuất khỏi thiết bị khác hoặc nâng cấp gói cước.'
+      });
+    }
     const cookieOptions = getCookieOptions();
     res.clearCookie('accessToken', cookieOptions);
     res.clearCookie('refreshToken', cookieOptions);
