@@ -94,16 +94,16 @@ export class NotificationService {
       }),
       this.expoPushService.sendNotification(userId, {
         title: dto.title,
+        message: dto.message,
+        data: { url: dto.actionUrl }
+      })
+    ]);
+
     const results = await Promise.allSettled(pushPromises);
     const failed = results.filter(r => r.status === 'rejected');
     if (failed.length > 0) {
-      console.warn(`⚠️ Có ${failed.length}/${userIds.length} thông báo đẩy bị lỗi (có thể do user chưa subscribe).`);
+        console.warn(`⚠️ Có ${failed.length}/${pushPromises.length} lần gửi thông báo đẩy bị lỗi (bao gồm web push và Expo push, có thể do user chưa subscribe).`);
     }
-        const failed = results.filter(r => r.status === 'rejected');
-        if (failed.length > 0) {
-            console.warn(`⚠️ Có ${failed.length}/${pushPromises.length} lần gửi thông báo đẩy bị lỗi (bao gồm web push và Expo push, có thể do user chưa subscribe).`);
-        }
-    });
   }
 
 async broadcastSystemNotification(title: string, message: string, data?: any): Promise<void> {
