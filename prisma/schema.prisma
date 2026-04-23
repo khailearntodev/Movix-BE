@@ -601,6 +601,7 @@ model SubscriptionPlan {
   can_create_watch_party         Boolean @default(false)
   max_watch_party_participants   Int     @default(0)
   can_kick_mute_members          Boolean @default(false)
+  max_devices                    Int     @default(1)
   is_active     Boolean  @default(true)
   created_at    DateTime @default(now())
   updated_at    DateTime @updatedAt
