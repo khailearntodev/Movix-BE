@@ -5,62 +5,90 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-export async function checkChatbotLimit(userId: string) {
+export async function checkAIFeatureLimit(
+  userId: string,
+  feature: "CHAT" | "SEARCH",
+) {
   const activeSub = await prisma.userSubscription.findFirst({
-    where: { user_id: userId, status: "ACTIVE", end_date: { gt: new Date() } },
+    where: {
+      user_id: userId,
+      status: "ACTIVE",
+      end_date: { gt: new Date() },
+    },
     include: { plan: true },
   });
 
-  let maxQuestions = 10;
+  let maxAllowed = 0;
 
-  if (activeSub && activeSub.plan) {
-    const benefits = activeSub.plan.benefits as Record<string, any>;
-    maxQuestions = benefits?.chatbot_ai?.max_questions_per_day ?? 10;
-  } else {
-    try {
-      let freeConfig = await prisma.systemConfig.findFirst({
-        where: { key: "FREE_TIER_BENEFITS" },
-      });
-      
-      if (!freeConfig) {
-        freeConfig = await prisma.systemConfig.create({
-          data: {
-            id: '11111111-2222-3333-4444-555555555555',
-            key: "FREE_TIER_BENEFITS",
-            value: { chatbot_ai: { max_questions_per_day: 10 } },
-            description: "Default free tier benefits (Auto-created)"
-          }
-        });
-      }
+  const freeConfig = await prisma.systemConfig.findUnique({
+    where: { key: "FREE_TIER_BENEFITS" },
+  });
 
-      const value = freeConfig.value as Record<string, any>;
-      maxQuestions = value?.chatbot_ai?.max_questions_per_day ?? 10;
-    } catch (error) {
-      maxQuestions = 10;
+  if (freeConfig && freeConfig.value) {
+    const value = freeConfig.value as Record<string, any>;
+    console.log("-----------------------------------------");
+    console.log("RAW VALUE FROM DATABASE (FREE_TIER_BENEFITS):", JSON.stringify(value, null, 2));
+    console.log("-----------------------------------------");
+    if (feature === "CHAT") {
+      maxAllowed = value?.chatbot_ai?.max_questions_per_day ?? 0;
+    } else if (feature === "SEARCH") {
+      maxAllowed = value?.smart_search?.max_requests_per_day ?? 0;
     }
   }
 
-  if (maxQuestions === -1) {
-    return { allowed: true, remaining: -1 };
+  if (activeSub && activeSub.plan.benefits) {
+    const benefits = activeSub.plan.benefits as Record<string, any>;
+    if (feature === "CHAT") {
+      maxAllowed = benefits?.chatbot_ai?.max_questions_per_day ?? maxAllowed;
+    } else if (feature === "SEARCH") {
+      maxAllowed = (benefits?.search_ai?.max_requests_per_day ??
+        benefits?.smart_search?.max_requests_per_day) ?? maxAllowed;
+    }
   }
 
+  if (maxAllowed === -1) {
+    return { allowed: true, remaining: -1 };
+  }
   const startOfDay = new Date();
   startOfDay.setHours(0, 0, 0, 0);
 
   const endOfDay = new Date();
   endOfDay.setHours(23, 59, 59, 999);
 
-  const todayQuestionCount = await prisma.chatbotLog.count({
+  let messageCondition: any = {};
+
+  if (feature === "SEARCH") {
+    messageCondition = {
+      OR: [
+        { user_message: { startsWith: "[Text Search]" } },
+        { user_message: { startsWith: "[Voice Search]" } },
+        { user_message: { startsWith: "[Image Search]" } },
+      ],
+    };
+  } else {
+    messageCondition = {
+      NOT: {
+        OR: [
+          { user_message: { startsWith: "[Text Search]" } },
+          { user_message: { startsWith: "[Voice Search]" } },
+          { user_message: { startsWith: "[Image Search]" } },
+        ],
+      },
+    };
+  }
+
+  const todayUsageCount = await prisma.chatbotLog.count({
     where: {
       user_id: userId,
       created_at: { gte: startOfDay, lte: endOfDay },
+      ...messageCondition,
     },
   });
 
-  const isAllowed = todayQuestionCount < maxQuestions;
+  const isAllowed = todayUsageCount < maxAllowed;
   return {
     allowed: isAllowed,
-    remaining: isAllowed ? maxQuestions - todayQuestionCount : 0,
+    remaining: isAllowed ? maxAllowed - todayUsageCount : 0,
   };
 }
 
