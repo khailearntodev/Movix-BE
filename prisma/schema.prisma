@@ -63,6 +63,12 @@ enum ReportStatus {
   REJECTED
 }
 
+enum RefundStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 enum NotificationType {
   NEW_MOVIE
   COMMENT_REPLY
@@ -166,6 +172,7 @@ model User {
   reports_resolved  Report[]          @relation("AdminResolvers")
   ai_memory         UserAiMemory?
   offline_downloads OfflineDownload[]
+  refund_requests   RefundRequest[]
 }
 
 model RefreshToken {
@@ -643,6 +650,20 @@ model Transaction {
 
   user User              @relation(fields: [user_id], references: [id], onDelete: Cascade)
   plan SubscriptionPlan? @relation(fields: [plan_id], references: [id], onDelete: SetNull)
+  refund_requests RefundRequest[]
+}
+
+model RefundRequest {
+  id             String       @id @default(uuid()) @db.Uuid
+  user_id        String       @db.Uuid
+  transaction_id String       @db.Uuid
+  reason         String?      @db.Text
+  status         RefundStatus @default(PENDING)
+  created_at     DateTime     @default(now())
+  updated_at     DateTime     @updatedAt
+
+  user        User        @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  transaction Transaction @relation(fields: [transaction_id], references: [id], onDelete: Cascade)
 }
 
 // --- [MOBILE OFFLINE DOWNLOADS] ---
