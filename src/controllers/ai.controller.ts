@@ -1,13 +1,14 @@
 import { Request, Response } from 'express';
 import * as aiService from '../services/ai.service';
-import { checkChatbotLimit, searchMoviesByImage } from '../services/ai.service';
+import { checkAIFeatureLimit, searchMoviesByImage } from '../services/ai.service';
 
 export const checkLimit = async (req: Request, res: Response) => {
   try {
     const userId = req.userId;
     if (!userId) return res.status(401).json({ message: "Unauthorized" });
 
-    const limitCheck = await checkChatbotLimit(userId);
+    const type = (req.query.type as 'CHAT' | 'SEARCH') || 'CHAT';
+    const limitCheck = await aiService.checkAIFeatureLimit(userId, type);
     res.json({
       remaining: limitCheck.remaining === -1 ? -1 : limitCheck.remaining,
     });
@@ -24,7 +25,7 @@ export const chat = async (req: Request, res: Response) => {
     if (!userId) return res.status(401).json({ message: "Unauthorized" });
     if (!message) return res.status(400).json({ message: "Thiếu nội dung chat" });
 
-    const limitCheck = await checkChatbotLimit(userId);
+    const limitCheck = await aiService.checkAIFeatureLimit(userId, 'CHAT');
 
     if (!limitCheck.allowed) {
       return res.status(403).json({
@@ -53,7 +54,7 @@ export const searchMovies = async (req: Request, res: Response) => {
     if (!userId) return res.status(401).json({ message: "Unauthorized" });
     if (!query) return res.status(400).json({ message: "Thiếu mô tả phim" });
 
-    const limitCheck = await checkChatbotLimit(userId);
+    const limitCheck = await aiService.checkAIFeatureLimit(userId, 'SEARCH');
     if (!limitCheck.allowed) {
       return res.status(403).json({
         message:
@@ -84,7 +85,7 @@ export const searchMoviesVoice = async (req: Request, res: Response) => {
       return res.status(400).json({ message: "Không tìm thấy file ghi âm" });
     }
 
-    const limitCheck = await checkChatbotLimit(userId);
+    const limitCheck = await aiService.checkAIFeatureLimit(userId, 'SEARCH');
     if (!limitCheck.allowed) {
       return res.status(403).json({
         message:
@@ -123,7 +124,7 @@ export const searchImage = async (req: Request, res: Response) => {
       return res.status(400).json({ message: "Vui lòng upload hình ảnh" });
     }
 
-    const limitCheck = await checkChatbotLimit(userId);
+    const limitCheck = await aiService.checkAIFeatureLimit(userId, 'SEARCH');
     if (!limitCheck.allowed) {
       return res.status(403).json({
         message:
@@ -131,7 +132,7 @@ export const searchImage = async (req: Request, res: Response) => {
       });
     }
 
-    const results = await searchMoviesByImage(
+    const results = await aiService.searchMoviesByImage(
       file.buffer,
       file.mimetype,
       userId,
