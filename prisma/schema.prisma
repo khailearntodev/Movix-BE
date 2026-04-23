@@ -79,6 +79,11 @@ enum NotificationChannel {
   PUSH
 }
 
+enum PushPlatform {
+  WEB
+  EXPO
+}
+
 enum Gender {
   MALE
   FEMALE
@@ -443,13 +448,15 @@ model Notification {
 }
 
 model PushSubscription {
-  id         String   @id @default(uuid()) @db.Uuid
-  user_id    String   @db.Uuid
-  endpoint   String   @unique
-  p256dh     String
-  auth       String
-  created_at DateTime @default(now())
-  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  id         String       @id @default(uuid()) @db.Uuid
+  user_id    String       @db.Uuid
+  platform   PushPlatform @default(WEB)
+  expo_token String?      @unique
+  endpoint   String?      @unique
+  p256dh     String?
+  auth       String?
+  created_at DateTime     @default(now())
+  user       User         @relation(fields: [user_id], references: [id], onDelete: Cascade)
 }
 
 model ChatbotLog {
