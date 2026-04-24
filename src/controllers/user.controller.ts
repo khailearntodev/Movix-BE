@@ -98,3 +98,40 @@ export const changeMyPassword = async (req: Request, res: Response) => {
   }
 };
 
+export const requestMySubscriptionRefund = async (req: Request, res: Response) => {
+  try {
+    const userId = req.userId;
+    const { reason } = req.body as { reason?: string };
+
+    if (!userId) {
+      return res.status(401).json({ message: 'Không thể xác định người dùng.' });
+    }
+
+    const result = await subscriptionService.requestRefundAndCancelSubscription(
+      userId,
+      reason,
+    );
+
+    return res.status(200).json(result);
+  } catch (error: any) {
+    return res.status(400).json({
+      message: error.message || 'Không thể gửi yêu cầu hoàn tiền.',
+    });
+  }
+};
+export const getMyRefundRequests = async (req: Request, res: Response) => {
+  try {
+    const userId = req.userId;
+    if (!userId) {
+      return res.status(401).json({ message: 'Không thể xác định người dùng.' });
+    }
+    const refundRequests = await subscriptionService.getMyRefundRequests(userId);
+    return res.status(200).json({
+      message: 'Lấy danh sách yêu cầu hoàn tiền thành công.',
+      data: refundRequests,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: 'Lỗi máy chủ nội bộ.',
+    });
+  }};
