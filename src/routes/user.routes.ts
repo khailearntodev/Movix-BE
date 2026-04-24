@@ -10,6 +10,7 @@ router.use(authenticateToken);
 router.get('/me', userController.getMyProfile);
 router.get('/me/subscription', userController.getMySubscription);
 router.post('/me/subscription/refund-request', userController.requestMySubscriptionRefund);
+router.get('/me/refund-requests', userController.getMyRefundRequests);
 router.put('/me', userController.updateMyProfile);
 router.post('/change-password', userController.changeMyPassword);
 

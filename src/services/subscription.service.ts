@@ -132,7 +132,6 @@ export const requestRefundAndCancelSubscription = async (
       user_id: userId,
       plan_id: subscription.plan_id,
       status: 'COMPLETED',
-      created_at: { gte: subscription.start_date },
     },
     orderBy: { created_at: 'desc' },
   });
@@ -164,3 +163,20 @@ export const requestRefundAndCancelSubscription = async (
   };
 };
 
+export const getMyRefundRequests = async (userId: string) => {
+  const refundRequests = await prisma.refundRequest.findMany({
+    where: { user_id: userId },
+    include: {
+      transaction: {
+        include: {
+          plan: true,
+        },
+      },
+    },
+    orderBy: {
+      created_at: 'desc',
+    },
+  });
+
+  return refundRequests;
+};
