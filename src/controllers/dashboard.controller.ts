@@ -8,13 +8,9 @@ export const dashboardController = {
       startOfToday.setHours(0, 0, 0, 0);
 
       const [totalUsers, totalMovies, totalViews, newCommentsToday] = await Promise.all([
-        // Đếm tổng user
         prisma.user.count(),
-        // Đếm phim đang active (không tính phim đã xóa mềm)
         prisma.movie.count({ where: { is_deleted: false, is_active: true } }),   
-        // Đếm tổng lượt xem từ bảng WatchHistory
         prisma.watchHistory.count(),
-        // Đếm bình luận mới trong ngày hôm nay
         prisma.comment.count({
           where: { created_at: { gte: startOfToday } }
         }),
@@ -32,7 +28,6 @@ export const dashboardController = {
     }
   },
 
-  // 2. API Biểu đồ tròn: Phân bố phim theo thể loại 
   getGenreDistribution: async (req: Request, res: Response) => {
     try {
       const genres = await prisma.genre.findMany({
@@ -62,7 +57,6 @@ export const dashboardController = {
     }
   },
 
-  // 3. API Biểu đồ cột: Top phim được yêu thích nhất
   getTopFavoritedMovies: async (req: Request, res: Response) => {
     try {
       const movies = await prisma.movie.findMany({
@@ -93,7 +87,6 @@ export const dashboardController = {
     }
   },
 
-  // 4. API Danh sách người dùng mới nhất
   getRecentUsers: async (req: Request, res: Response) => {
     try {
       const users = await prisma.user.findMany({
@@ -133,7 +126,6 @@ export const dashboardController = {
         ORDER BY DATE_TRUNC('month', created_at) ASC
       `;
 
-      // Thống kê theo ngày (30 ngày gần nhất)
       const dailyStatsRaw: any[] = await prisma.$queryRaw`
         SELECT 
           TO_CHAR(created_at, 'YYYY-MM-DD') as date_full,
@@ -144,13 +136,12 @@ export const dashboardController = {
         ORDER BY DATE_TRUNC('day', created_at) ASC
       `;
 
-      // Fill dữ liệu cho các ngày không có user mới
       const dailyStats = [];
       const today = new Date();
       for (let i = 30; i >= 0; i--) {
         const d = new Date();
         d.setDate(today.getDate() - i);
-        const dateStr = d.toISOString().split('T')[0]; // YYYY-MM-DD
+        const dateStr = d.toISOString().split('T')[0];
         const displayDate = `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}`;
         
         const found = dailyStatsRaw.find((item: any) => item.date_full === dateStr);
@@ -163,13 +154,8 @@ export const dashboardController = {
       const topMovies = await prisma.movie.findMany({
         take: 7,
         where: { is_deleted: false },
-        select: {
-          title: true,
-          view_count: true
-        },
-        orderBy: {
-          view_count: 'desc'
-        }
+        select: { title: true, view_count: true },
+        orderBy: { view_count: 'desc' }
       });
 
       const topGenres = await prisma.genre.findMany({
@@ -178,11 +164,7 @@ export const dashboardController = {
           name: true,
           movie_genres: {
             include: {
-              movie: {
-                select: {
-                  view_count: true
-                }
-              }
+              movie: { select: { view_count: true } }
             }
           }
         }
@@ -190,7 +172,6 @@ export const dashboardController = {
       
       const genreData = topGenres.map((g) => ({
         genre: g.name,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         views: g.movie_genres.reduce((sum: number, mg: any) => {
             return sum + (mg.movie.view_count || 0);
         }, 0),
@@ -220,6 +201,63 @@ export const dashboardController = {
     } catch (error) {
       console.error("Report Data Error:", error);
       res.status(500).json({ message: 'Lỗi lấy dữ liệu báo cáo' });
+    }
+  },
+
+  getRevenueToday: async (req: Request, res: Response) => {
+    try {
+      const now = new Date();
+      const vnTime = new Date(now.getTime() + 7 * 60 * 60 * 1000);
+      const startOfTodayVN = new Date(vnTime);
+      startOfTodayVN.setUTCHours(0, 0, 0, 0);
+      
+      const startOfTodayUTC = new Date(startOfTodayVN.getTime() - 7 * 60 * 60 * 1000);
+
+      const transactions = await prisma.transaction.findMany({
+        where: {
+          created_at: { gte: startOfTodayUTC },
+          status: 'COMPLETED',
+        },
+        select: { amount: true, created_at: true },
+      });
+
+      const hourlyData = Array.from({ length: 12 }, (_, i) => {
+        const hour = i * 2;
+        const timeLabel = `${hour.toString().padStart(2, '0')}:00`;
+        
+        const revenue = transactions.reduce((sum, trx) => {
+          const trxVnTime = new Date(new Date(trx.created_at).getTime() + 7 * 60 * 60 * 1000);
+          const trxHour = trxVnTime.getUTCHours();
+          
+          if (trxHour >= hour && trxHour < hour + 2) return sum + trx.amount;
+          return sum;
+        }, 0);
+        
+        return { time: timeLabel, revenue };
+      });
+
+      res.status(200).json(hourlyData);
+    } catch (error) {
+      console.error("Revenue Today Error:", error)
+      res.status(500).json({ message: 'Lỗi lấy doanh thu hôm nay' });
+    }
+  },
+
+  getConversion: async (req: Request, res: Response) => {
+    try {
+      const [totalUsers, paidUsersCount] = await Promise.all([
+        prisma.user.count(),
+        prisma.transaction.groupBy({
+          by: ['user_id'],
+          where: { status: 'COMPLETED' },
+        }).then(groups => groups.length)
+      ]);
+
+      const rate = totalUsers > 0 ? Number(((paidUsersCount / totalUsers) * 100).toFixed(1)) : 0;
+      res.status(200).json({ total: totalUsers, paid: paidUsersCount, rate });
+    } catch (error) {
+      console.error("Conversion Error:", error);
+      res.status(500).json({ message: 'Lỗi tính tỷ lệ chuyển đổi' });
     }
   }
 };
