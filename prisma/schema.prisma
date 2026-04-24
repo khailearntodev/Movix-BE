@@ -536,6 +536,7 @@ model WatchPartyMember {
   role      String   @default("participant") @db.VarChar(20) // 'host', 'participant'
   is_online Boolean  @default(true)
   is_banned Boolean  @default(false)
+  is_muted  Boolean  @default(false)
   party     WatchParty @relation(fields: [party_id], references: [id], onDelete: Cascade)
   user      User       @relation(fields: [user_id], references: [id], onDelete: Cascade)
   @@unique([party_id, user_id])

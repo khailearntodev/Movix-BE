@@ -1,4 +1,5 @@
 import { prisma } from '../lib/prisma';
+import { getUserSubscription } from './subscription.service';
 import { Prisma } from '@prisma/client';
 
 export const watchPartyService = {
@@ -10,7 +11,20 @@ export const watchPartyService = {
     isPrivate: boolean; 
     scheduledAt?: string 
   }) => {
-    
+
+    const userSub = await getUserSubscription(userId);
+    let canCreate = false;
+    let maxParticipants = 0;
+
+    if (userSub && userSub.status === 'ACTIVE' && userSub.plan) {
+      canCreate = userSub.plan.can_create_watch_party;
+      maxParticipants = userSub.plan.max_watch_party_participants;
+    }
+
+    if (!canCreate) {
+      throw new Error("Gói của bạn không hỗ trợ tạo phòng xem chung. Vui lòng nâng cấp để sử dụng tính năng này.");
+    }
+
     const existingParty = await prisma.watchParty.findFirst({
       where: {
         host_user_id: userId,
@@ -58,25 +72,28 @@ export const watchPartyService = {
         host_user_id: userId,
         title: data.title,
         movie_id: data.movieId,
-        episode_id: finalEpisodeId, 
+        episode_id: finalEpisodeId,
         is_private: data.isPrivate,
         join_code: joinCode,
+        max_participants: maxParticipants,
         scheduled_at: data.scheduledAt ? new Date(data.scheduledAt) : null,
         started_at: startedAt,
         is_active: true,
         members: {
           create: {
             user_id: userId,
-            role: 'host',
-            is_online: true
-          }
+            role: "host",
+            is_online: true,
+          },
         },
-        reminders: data.scheduledAt ? {
-            create: {
-                user_id: userId
+        reminders: data.scheduledAt
+          ? {
+              create: {
+                user_id: userId,
+              },
             }
-        } : undefined
-      }
+          : undefined,
+      },
     });
   },
 
@@ -146,6 +163,7 @@ export const watchPartyService = {
         host: room.host_user.display_name || room.host_user.username,
         hostAvatar: room.host_user.avatar_url,
         viewers: room._count.members,
+        maxParticipants: room.max_participants,
         isPrivate: room.is_private,
         status: filter,
         scheduledAt: room.scheduled_at,
@@ -244,7 +262,6 @@ export const watchPartyService = {
     if (!party) throw new Error("PARTY_NOT_FOUND");
     if (!party.is_active) throw new Error("PARTY_ENDED");
 
-    // Lỗi có thể do Prisma typing array, ta dùng `[]` hoặc `any[]`
     const partyMessages = (party as any).messages || [];
     const formattedMessages = partyMessages.map((msg: any) => {
         return {

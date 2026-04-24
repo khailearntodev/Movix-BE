@@ -27,6 +27,7 @@ export class PayosProvider implements IPaymentProvider {
 
   async verifyWebhook(webhookBody: any): Promise<WebhookResult> {
     const data = await payos.webhooks.verify(webhookBody);
+    console.log(">>> PAYOS WEBHOOK DATA VERIFIED:", data);
     
     const isSuccess = data.code === '00';
 
@@ -34,6 +35,15 @@ export class PayosProvider implements IPaymentProvider {
       orderCode: String(data.orderCode),
       isSuccess: isSuccess,
       amount: data.amount,
+      metadata: {
+        reference: data.reference,
+        accountNumber: data.accountNumber,
+        counterAccountName: data.counterAccountName,
+        counterAccountNumber: data.counterAccountNumber,
+        counterAccountBankName: data.counterAccountBankName,
+        transactionDateTime: data.transactionDateTime,
+        paymentLinkId: data.paymentLinkId
+      }
     };
   }
 
