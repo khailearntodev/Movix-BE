@@ -27,6 +27,7 @@ import subscriptionPlanRoutes from './routes/subscription-plan.routes';
 import paymentRoutes from './routes/payment.routes';
 import livekitRoutes from './routes/livekit.routes';
 import adminSubscriptionRoutes from './routes/admin.subscription.routes';
+import downloadRoutes from './routes/download.route';
 import { startCronJobs } from './services/cron.service';
 import adminTransactionRoutes from './routes/admin.transaction.routes';
 
@@ -73,6 +74,8 @@ app.use('/api/watch-party', watchPartyRoutes);
 app.use('/api/subscription-plans', subscriptionPlanRoutes);
 app.use('/api/payment', paymentRoutes);
 app.use('/api/admin/transactions', adminTransactionRoutes);
+app.use('/api/downloads', downloadRoutes);
+
 app.use("/api/livekit", livekitRoutes);
 app.use("/api/admin/subscriptions", adminSubscriptionRoutes);
 app.get('/api', (req, res) => {
