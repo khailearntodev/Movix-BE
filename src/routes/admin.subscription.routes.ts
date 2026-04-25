@@ -3,6 +3,9 @@ import * as subscriptionController from '../controllers/admin.subscription.contr
 
 const router = express.Router();
 
+// GET /api/admin/subscriptions/plans
+router.get('/plans', subscriptionController.getAllSubscriptionPlans);
+
 // GET /api/admin/subscriptions
 router.get('/getAll', subscriptionController.getAllSubscriptions);
 

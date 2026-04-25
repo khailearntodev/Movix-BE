@@ -10,6 +10,8 @@ router.get('/stats', dashboardController.getStats);
 router.get('/genres', dashboardController.getGenreDistribution);
 router.get('/top-movies', dashboardController.getTopFavoritedMovies);
 router.get('/recent-users', dashboardController.getRecentUsers);
+router.get('/revenue-today', dashboardController.getRevenueToday);
+router.get('/conversion', dashboardController.getConversion);
 router.get('/report-all', dashboardController.getReportData);
 
 export default router;

@@ -132,6 +132,9 @@ export class PaymentService {
       }
     });
 
+    console.log(">>> [PaymentService] Webhook OrderCode:", result.orderCode, "Status:", result.isSuccess ? 'SUCCESS' : 'FAILED');
+    console.log(">>> [PaymentService] Metadata to save:", JSON.stringify(result.metadata, null, 2));
+
     if (!transaction) {
       throw new Error("Transaction not found or already processed");
     }
@@ -139,14 +142,20 @@ export class PaymentService {
     if (!result.isSuccess) {
       await prisma.transaction.update({
         where: { id: transaction.id },
-        data: { status: 'FAILED' }
+        data: { 
+          status: 'FAILED',
+          metadata: result.metadata
+        }
       });
       return { success: false, message: 'Payment failed' };
     }
 
     await prisma.transaction.update({
       where: { id: transaction.id },
-      data: { status: 'COMPLETED' }
+      data: { 
+        status: 'COMPLETED',
+        metadata: result.metadata
+      }
     });
 
   

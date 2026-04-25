@@ -7,7 +7,8 @@ export const getAllSubscriptions = async (req: Request, res: Response) => {
         const page = parseInt(req.query.page as string) || 1;
         const take = parseInt(req.query.take as string) || 10;
         const statusFilter = req.query.status as SubscriptionStatus | undefined;
-        const result = await SubscriptionService.getAllSubscriptions(page, take, statusFilter);
+        const planIdFilter = req.query.planId as string | undefined;
+        const result = await SubscriptionService.getAllSubscriptions(page, take, statusFilter, planIdFilter);
         res.status(200).json(result);
     } catch (error: any) {
         console.error('Error fetching subscriptions:', error);
@@ -107,6 +108,16 @@ export const getSubscriptionDetails = async (req: Request, res: Response) => {
     } catch (error: any) {
         console.error('Error fetching subscription details:', error);
         res.status(500).json({ message: error.message || 'Error fetching subscription details' });
+    }
+};
+
+export const getAllSubscriptionPlans = async (req: Request, res: Response) => {
+    try {
+        const plans = await SubscriptionService.getAllSubscriptionPlans();
+        res.status(200).json(plans);
+    } catch (error: any) {
+        console.error('Error fetching subscription plans:', error);
+        res.status(500).json({ message: error.message || 'Error fetching subscription plans' });
     }
 };
 
