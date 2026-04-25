@@ -38,4 +38,10 @@ router.patch('/ban/:id', watchPartyController.banUser);
 //11. Mute user trong phòng
 router.patch('/mute/:id', watchPartyController.muteUser);
 
+//12. Lấy danh sách tin nhắn bị báo cáo trong phòng (Admin)
+router.get('/flagged-messages/:id', watchPartyController.getFlaggedMessages);
+
+//13. Xử lý tin nhắn bị gắn cờ (Admin)
+router.patch('/flagged-messages/resolve/:messageId', watchPartyController.resolveFlaggedMessage);
+
 export default router;

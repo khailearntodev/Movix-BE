@@ -3,34 +3,34 @@ import { watchPartyService } from '../services/watch-party.service';
 import { webSocketService } from '../index';
 
 export const watchPartyController = {
-  
+
   // 1. Tạo phòng mới (Live hoặc Scheduled)
   create: async (req: Request, res: Response) => {
     try {
-      const userId = req.userId!; 
+      const userId = req.userId!;
       const { title, movieId, episodeId, isPrivate, scheduledAt } = req.body;
 
       if (!title || !movieId) {
         return res.status(400).json({ message: "Thiếu tên phòng hoặc phim." });
       }
 
-      const newRoom = await watchPartyService.create(userId, { 
-        title, 
-        movieId, 
+      const newRoom = await watchPartyService.create(userId, {
+        title,
+        movieId,
         episodeId,
-        isPrivate, 
-        scheduledAt 
+        isPrivate,
+        scheduledAt
       });
-      
+
       res.status(201).json(newRoom);
     } catch (error: any) {
       if (error.message === "USER_HAS_ACTIVE_PARTY") {
-          return res.status(409).json({ message: "Bạn đang có một phòng hoạt động. Hãy kết thúc nó trước khi tạo mới." });
+        return res.status(409).json({ message: "Bạn đang có một phòng hoạt động. Hãy kết thúc nó trước khi tạo mới." });
       }
       if (error.message === "MOVIE_SOURCE_NOT_FOUND") {
-          return res.status(404).json({ message: "Không tìm thấy tập phim để phát." });
+        return res.status(404).json({ message: "Không tìm thấy tập phim để phát." });
       }
-      
+
       console.error("Create Party Error:", error);
       res.status(500).json({ message: "Lỗi máy chủ khi tạo phòng." });
     }
@@ -40,10 +40,10 @@ export const watchPartyController = {
   getAll: async (req: Request, res: Response) => {
     try {
       const filter = (req.query.filter as 'live' | 'scheduled' | 'ended') || 'live';
-      const search = req.query.q as string | undefined; 
+      const search = req.query.q as string | undefined;
 
       const rooms = await watchPartyService.getAll(filter, search);
-      
+
       res.json(rooms);
     } catch (error) {
       console.error("Get All Parties Error:", error);
@@ -64,7 +64,7 @@ export const watchPartyController = {
     } catch (error: any) {
       if (error.message === "PARTY_NOT_FOUND") return res.status(404).json({ message: "Phòng không tồn tại." });
       if (error.message === "PARTY_ENDED") return res.status(410).json({ message: "Phòng đã kết thúc." });
-      
+
       console.error("Get Party Details Error:", error);
       res.status(500).json({ message: "Lỗi khi lấy thông tin phòng." });
     }
@@ -74,7 +74,7 @@ export const watchPartyController = {
   toggleReminder: async (req: Request, res: Response) => {
     try {
       const userId = req.userId!;
-      const { id } = req.params; 
+      const { id } = req.params;
 
       const result = await watchPartyService.toggleReminder(userId, id);
       res.json(result);
@@ -88,15 +88,15 @@ export const watchPartyController = {
   cancel: async (req: Request, res: Response) => {
     try {
       const userId = req.userId!;
-      const { id } = req.params; 
+      const { id } = req.params;
 
       await watchPartyService.cancel(userId, id);
-      
+
       res.json({ success: true, message: "Đã hủy lịch công chiếu." });
     } catch (error: any) {
       if (error.message === "NOT_HOST") return res.status(403).json({ message: "Bạn không phải chủ phòng." });
       if (error.message === "PARTY_ALREADY_STARTED") return res.status(400).json({ message: "Phim đang chiếu, không thể hủy lịch." });
-      
+
       console.error("Cancel Party Error:", error);
       res.status(500).json({ message: "Lỗi khi hủy phòng." });
     }
@@ -106,12 +106,12 @@ export const watchPartyController = {
   end: async (req: Request, res: Response) => {
     try {
       const userId = req.userId!;
-      const { id } = req.params; 
+      const { id } = req.params;
 
       await watchPartyService.end(userId, id);
-      
+
       await webSocketService.endRoom(id);
-      
+
       res.json({ success: true, message: "Đã kết thúc phòng xem chung." });
     } catch (error: any) {
       if (error.message === "NOT_HOST") {
@@ -120,7 +120,7 @@ export const watchPartyController = {
       console.error("End Party Error:", error);
       res.status(500).json({ message: "Lỗi khi kết thúc phòng." });
     }
-  }, 
+  },
 
   joinByCode: async (req: Request, res: Response) => {
     try {
@@ -128,7 +128,7 @@ export const watchPartyController = {
       if (!code) return res.status(400).json({ message: "Vui lòng nhập mã phòng." });
 
       const result = await watchPartyService.joinByCode(code);
-      res.json(result); 
+      res.json(result);
     } catch (error: any) {
       if (error.message === "INVALID_CODE") return res.status(404).json({ message: "Mã phòng không tồn tại." });
       if (error.message === "PARTY_ENDED") return res.status(410).json({ message: "Phòng này đã kết thúc." });
@@ -136,17 +136,17 @@ export const watchPartyController = {
     }
   },
 
-  getDetailsById: async(req: Request, res: Response) => {
-    try{
-      const {partyId} = req.params;
+  getDetailsById: async (req: Request, res: Response) => {
+    try {
+      const { partyId } = req.params;
       const room = await watchPartyService.getDetailsById(partyId);
       return res.status(200).json(room);
-    } catch (error:any){
+    } catch (error: any) {
       if (error.message === "PARTY_NOT_FOUND") return res.status(404).json({ message: "Phòng không tồn tại." });
     }
   },
 
-  getStats: async(req: Request, res: Response) => {
+  getStats: async (req: Request, res: Response) => {
     try {
       const stats = await watchPartyService.getStats();
       return res.status(200).json(stats);
@@ -156,7 +156,7 @@ export const watchPartyController = {
     }
   },
 
-  banUser: async(req: Request, res: Response) => {
+  banUser: async (req: Request, res: Response) => {
     try {
       const userId = req.userId!;
       const { id: partyId } = req.params;
@@ -164,7 +164,7 @@ export const watchPartyController = {
 
       await watchPartyService.banUser(userId, targetUserId, partyId);
       await webSocketService.banUser(targetUserId, partyId);
-      
+
       return res.status(200).json({ success: true, message: "Đã ban thành viên khỏi phòng." });
     } catch (error: any) {
       if (error.message === "NOT_AUTHORIZED") {
@@ -175,7 +175,7 @@ export const watchPartyController = {
     }
   },
 
-  muteUser: async(req: Request, res: Response) => {
+  muteUser: async (req: Request, res: Response) => {
     try {
       const userId = req.userId!;
       const { id: partyId } = req.params;
@@ -183,10 +183,10 @@ export const watchPartyController = {
 
       await watchPartyService.muteUser(userId, targetUserId, partyId, mute);
       await webSocketService.muteUser(targetUserId, partyId, mute);
-      
-      return res.status(200).json({ 
-        success: true, 
-        message: mute ? "Đã tắt tiếng thành viên." : "Đã mở tiếng thành viên." 
+
+      return res.status(200).json({
+        success: true,
+        message: mute ? "Đã tắt tiếng thành viên." : "Đã mở tiếng thành viên."
       });
     } catch (error: any) {
       if (error.message === "NOT_AUTHORIZED") {
@@ -194,6 +194,53 @@ export const watchPartyController = {
       }
       console.error("Mute User Error:", error);
       res.status(500).json({ message: "Lỗi khi tắt tiếng thành viên." });
+    }
+  },
+
+  // 12. Lấy danh sách tin nhắn bị báo cáo (Admin)
+  getFlaggedMessages: async (req: Request, res: Response) => {
+    try {
+      const userId = req.userId!;
+      const { id } = req.params;
+      const messages = await watchPartyService.getFlaggedMessages(userId, id);
+      return res.status(200).json(messages);
+    } catch (error: any) {
+      if (error.message === "NOT_AUTHORIZED") {
+        return res.status(403).json({ message: "Bạn không có quyền thực hiện hành động này." });
+      }
+      console.error("Get Flagged Messages Error:", error);
+      res.status(500).json({ message: "Lỗi khi lấy tin nhắn bị báo cáo." });
+    }
+  },
+
+  // 13. Xử lý tin nhắn bị báo cáo (Admin)
+  resolveFlaggedMessage: async (req: Request, res: Response) => {
+    try {
+      const userId = req.userId!;
+      const { messageId } = req.params;
+      const { action } = req.body;
+
+      if (!["delete", "ignore"].includes(action)) {
+        return res.status(400).json({ message: "Hành động không hợp lệ." });
+      }
+
+      const isDeleted = action === "delete";
+      const result = await watchPartyService.resolveFlaggedMessage(userId, messageId, isDeleted);
+
+      if (isDeleted && result.partyId) {
+        await webSocketService.deleteMessage(messageId, result.partyId);
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: isDeleted ? "Đã xóa tin nhắn vi phạm." : "Đã bỏ qua báo cáo."
+      });
+    } catch (error: any) {
+      if (error.message === "NOT_AUTHORIZED") {
+        return res.status(403).json({ message: "Bạn không có quyền thực hiện hành động này." });
+      }
+      console.error("Resolve Message Error:", error);
+      res.status(500).json({ message: "Lỗi khi xử lý tin nhắn." });
     }
   },
 };

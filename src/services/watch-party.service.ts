@@ -388,9 +388,9 @@ export const watchPartyService = {
           where: { id: hostUserId },
           include: { role: true }
         });
-        
+
         if (adminUser?.role?.name !== 'Admin') {
-           throw new Error("NOT_AUTHORIZED");
+          throw new Error("NOT_AUTHORIZED");
         }
       }
 
@@ -422,9 +422,9 @@ export const watchPartyService = {
           where: { id: hostUserId },
           include: { role: true }
         });
-        
+
         if (adminUser?.role?.name !== 'Admin') {
-           throw new Error("NOT_AUTHORIZED");
+          throw new Error("NOT_AUTHORIZED");
         }
       }
 
@@ -438,6 +438,77 @@ export const watchPartyService = {
       if (error.message === "NOT_AUTHORIZED") throw error;
       console.error("Error in muteUser service:", error);
       throw new Error("Error mute user");
+    }
+  },
+
+  getFlaggedMessages: async (adminUserId: string, partyId: string) => {
+    try {
+      // KIỂM TRA QUYỀN ADMIN
+      const user = await prisma.user.findUnique({
+        where: { id: adminUserId },
+        include: { role: true }
+      });
+
+      if (user?.role?.name !== 'Admin') {
+        throw new Error("NOT_AUTHORIZED");
+      }
+
+      const party = await prisma.watchParty.findUnique({
+        where: { id: partyId },
+      });
+
+      if (!party) {
+        throw new Error("Phòng không tồn tại.");
+      }
+
+      const messages = await prisma.watchPartyMessage.findMany({
+        where: { party_id: partyId, is_flagged: true },
+        include: {
+          user: { select: { id: true, username: true, avatar_url: true } },
+        },
+        orderBy: { created_at: 'desc' },
+      });
+      return messages;
+    } catch (error: any) {
+      if (error.message === "NOT_AUTHORIZED") throw error;
+      console.error("Error fetching flagged messages:", error);
+      throw new Error("Error fetching flagged messages");
+    }
+  },
+
+  resolveFlaggedMessage: async (adminUserId: string, messageId: string, isDeleted: boolean) => {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: adminUserId },
+        include: { role: true }
+      });
+
+      if (user?.role?.name !== 'Admin') {
+        throw new Error("NOT_AUTHORIZED");
+      }
+
+      const message = await prisma.watchPartyMessage.findUnique({
+        where: { id: messageId },
+      });
+
+      if (!message) {
+        throw new Error("Tin nhắn không tồn tại.");
+      }
+
+      await prisma.watchPartyMessage.update({
+        where: { id: messageId },
+        data: { is_flagged: false, is_deleted: isDeleted },
+      });
+
+      return {
+        success: true,
+        message: "Đã giải quyết tin nhắn.",
+        partyId: message.party_id
+      };
+    } catch (error: any) {
+      if (error.message === "NOT_AUTHORIZED") throw error;
+      console.error("Error resolving flagged message:", error);
+      throw new Error("Error resolving flagged message");
     }
   },
 };

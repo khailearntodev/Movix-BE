@@ -597,6 +597,15 @@ export class WebSocketService {
     }
   }
 
+  public async deleteMessage(messageId: string, roomId: string) {
+    try {
+      this.io.to(roomId).emit('wp:message_deleted', { messageId });
+      console.log(`🗑️ Message ${messageId} deleted from room ${roomId}`);
+    } catch (error) {
+      console.error('Error deleting message:', error);
+    }
+  }
+
   // --- XỬ LÝ NOTIFICATION EVENTS ---
   private handleSocketEvents(socket: any): void {
     const userId = socket.data.user.id;
