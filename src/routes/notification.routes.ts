@@ -26,6 +26,12 @@ router.delete('/:notificationId', controller.deleteNotification.bind(controller)
 // Subscribe Web Push
 router.post('/subscribe', controller.subscribe.bind(controller));
 
+// Subscribe Expo Push
+router.post('/expo-token', controller.subscribeexpo.bind(controller));
+
+// Unregister device
+router.post('/unregister-device', controller.unregisterDevice.bind(controller));
+
 router.post('/send', controller.sendCustomNotification.bind(controller));
 
 export default router;

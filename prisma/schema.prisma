@@ -63,6 +63,12 @@ enum ReportStatus {
   REJECTED
 }
 
+enum RefundStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 enum NotificationType {
   NEW_MOVIE
   COMMENT_REPLY
@@ -77,6 +83,11 @@ enum NotificationChannel {
   IN_APP
   EMAIL
   PUSH
+}
+
+enum PushPlatform {
+  WEB
+  EXPO
 }
 
 enum Gender {
@@ -161,6 +172,7 @@ model User {
   reports_resolved  Report[]          @relation("AdminResolvers")
   ai_memory         UserAiMemory?
   offline_downloads OfflineDownload[]
+  refund_requests   RefundRequest[]
 }
 
 model RefreshToken {
@@ -443,13 +455,15 @@ model Notification {
 }
 
 model PushSubscription {
-  id         String   @id @default(uuid()) @db.Uuid
-  user_id    String   @db.Uuid
-  endpoint   String   @unique
-  p256dh     String
-  auth       String
-  created_at DateTime @default(now())
-  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  id         String       @id @default(uuid()) @db.Uuid
+  user_id    String       @db.Uuid
+  platform   PushPlatform @default(WEB)
+  expo_token String?      @unique
+  endpoint   String?      @unique
+  p256dh     String?
+  auth       String?
+  created_at DateTime     @default(now())
+  user       User         @relation(fields: [user_id], references: [id], onDelete: Cascade)
 }
 
 model ChatbotLog {
@@ -601,6 +615,7 @@ model SubscriptionPlan {
   can_create_watch_party         Boolean @default(false)
   max_watch_party_participants   Int     @default(0)
   can_kick_mute_members          Boolean @default(false)
+  max_devices                    Int     @default(1)
   is_active     Boolean  @default(true)
   created_at    DateTime @default(now())
   updated_at    DateTime @updatedAt
@@ -636,6 +651,20 @@ model Transaction {
 
   user User              @relation(fields: [user_id], references: [id], onDelete: Cascade)
   plan SubscriptionPlan? @relation(fields: [plan_id], references: [id], onDelete: SetNull)
+  refund_requests RefundRequest[]
+}
+
+model RefundRequest {
+  id             String       @id @default(uuid()) @db.Uuid
+  user_id        String       @db.Uuid
+  transaction_id String       @db.Uuid
+  reason         String?      @db.Text
+  status         RefundStatus @default(PENDING)
+  created_at     DateTime     @default(now())
+  updated_at     DateTime     @updatedAt
+
+  user        User        @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  transaction Transaction @relation(fields: [transaction_id], references: [id], onDelete: Cascade)
 }
 
 // --- [MOBILE OFFLINE DOWNLOADS] ---

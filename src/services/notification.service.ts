@@ -1,11 +1,13 @@
 import { PrismaClient } from '@prisma/client';
 import { CreateNotificationDto, NotificationResponse, NotificationType } from '../types/notification';
 import { PushNotificationService } from './push-notification.service';
+import { ExpoPushService } from './expo-push.service';
 
 export class NotificationService {
   private prisma: PrismaClient;
   private webSocketService: any;
   private pushNotificationService = new PushNotificationService();
+  private expoPushService = new ExpoPushService();
 
   constructor(webSocketService?: any) {
     this.prisma = new PrismaClient();
@@ -14,6 +16,18 @@ export class NotificationService {
 
   setWebSocketService(webSocketService: any) {
     this.webSocketService = webSocketService;
+  }
+
+  async unregisterDevice(userId: string, token: string) {
+    await this.prisma.pushSubscription.deleteMany({
+      where: {
+        user_id: userId,
+        OR: [
+          { expo_token: token },
+          { endpoint: token }
+        ]
+      }
+    });
   }
 
   async createNotification(dto: CreateNotificationDto): Promise<NotificationResponse> {
@@ -37,6 +51,12 @@ export class NotificationService {
         title: dto.title,
         message: dto.message,
         url: dto.actionUrl
+      });
+
+      await this.expoPushService.sendNotification(dto.userId, {
+        title: dto.title,
+        message: dto.message,
+        data: { url: dto.actionUrl }
       });
     }
 
@@ -66,20 +86,24 @@ export class NotificationService {
       });
     }
 
-    const pushPromises = userIds.map(userId => 
+    const pushPromises = userIds.flatMap(userId => [
       this.pushNotificationService.sendNotification(userId, {
         title: dto.title,
         message: dto.message,
         url: dto.actionUrl,
+      }),
+      this.expoPushService.sendNotification(userId, {
+        title: dto.title,
+        message: dto.message,
+        data: { url: dto.actionUrl }
       })
-    );
+    ]);
 
-    Promise.allSettled(pushPromises).then(results => {
-        const failed = results.filter(r => r.status === 'rejected');
-        if (failed.length > 0) {
-            console.warn(`⚠️ Có ${failed.length}/${userIds.length} thông báo đẩy bị lỗi (có thể do user chưa subscribe).`);
-        }
-    });
+    const results = await Promise.allSettled(pushPromises);
+    const failed = results.filter(r => r.status === 'rejected');
+    if (failed.length > 0) {
+        console.warn(`⚠️ Có ${failed.length}/${pushPromises.length} lần gửi thông báo đẩy bị lỗi (bao gồm web push và Expo push, có thể do user chưa subscribe).`);
+    }
   }
 
 async broadcastSystemNotification(title: string, message: string, data?: any): Promise<void> {
