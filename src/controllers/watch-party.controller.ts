@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { watchPartyService } from '../services/watch-party.service';
+import { webSocketService } from '../index';
 
 export const watchPartyController = {
   
@@ -101,13 +102,15 @@ export const watchPartyController = {
     }
   },
 
-  // 6. Kết thúc phòng đang chiếu (Chỉ Host - Đóng phòng Active)
+  // 6. Kết thúc phòng đang chiếu (Chỉ Host hoặc Admin)
   end: async (req: Request, res: Response) => {
     try {
       const userId = req.userId!;
       const { id } = req.params; 
 
       await watchPartyService.end(userId, id);
+      
+      await webSocketService.endRoom(id);
       
       res.json({ success: true, message: "Đã kết thúc phòng xem chung." });
     } catch (error: any) {
@@ -131,5 +134,25 @@ export const watchPartyController = {
       if (error.message === "PARTY_ENDED") return res.status(410).json({ message: "Phòng này đã kết thúc." });
       res.status(500).json({ message: "Lỗi máy chủ." });
     }
-  }
+  },
+
+  getDetailsById: async(req: Request, res: Response) => {
+    try{
+      const {partyId} = req.params;
+      const room = await watchPartyService.getDetailsById(partyId);
+      return res.status(200).json(room);
+    } catch (error:any){
+      if (error.message === "PARTY_NOT_FOUND") return res.status(404).json({ message: "Phòng không tồn tại." });
+    }
+  },
+
+  getStats: async(req: Request, res: Response) => {
+    try {
+      const stats = await watchPartyService.getStats();
+      return res.status(200).json(stats);
+    } catch (error) {
+      console.error("Get Stats Error:", error);
+      res.status(500).json({ message: "Lỗi khi lấy số liệu." });
+    }
+  },
 };

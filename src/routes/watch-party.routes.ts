@@ -8,22 +8,28 @@ router.use(authenticateToken);
 // 1. Lấy danh sách phòng (Sảnh chờ)
 router.get('/', watchPartyController.getAll);
 
-// 2. Tạo phòng mới
+//2. Lấy Stats cho các thẻ quản lý của admin
+router.get('/stats', watchPartyController.getStats);
+
+// 3. Tạo phòng mới
 router.post('/', watchPartyController.create);
 
-// 3. Tìm phòng bằng mã code
+// 4. Tìm phòng bằng mã code
 router.post('/join', watchPartyController.joinByCode);
 
-// 4. Đăng ký nhận thông báo phim sắp chiếu
+// 5. Đăng ký nhận thông báo phim sắp chiếu
 router.post('/:id/remind', watchPartyController.toggleReminder);
 
-// 5. Kết thúc phòng (chỉ host mới có quyền)
+// 6. Kết thúc phòng (chỉ host mới có quyền)
 router.put('/:id/end', watchPartyController.end);
 
-// 6. Hủy phòng sắp chiếu (chỉ host mới có quyền)
+// 7. Hủy phòng sắp chiếu (chỉ host mới có quyền)
 router.delete('/:id', watchPartyController.cancel);
 
-// 7. Lấy chi tiết phòng để tham gia
+// 8. Lấy chi tiết phòng để tham gia
 router.get('/:id', watchPartyController.getDetails);
+
+// 9. Lấy chi tiết phòng để quản lý
+router.get('/manage/:id', watchPartyController.getDetailsById);
 
 export default router;

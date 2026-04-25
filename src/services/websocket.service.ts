@@ -573,13 +573,27 @@ export class WebSocketService {
       const userId = socket.data.user.id;
       if (!(await this.verifyHost(roomId, userId))) return;
 
+      // Thay vì tự update DB, ta có thể để Service lo hoặc giữ nguyên ở đây
+      // Nhưng quan trọng là phải gọi hàm thông báo chung
+      await this.endRoom(roomId);
+    });
+  }
+
+  // Hàm công khai để đóng phòng từ bất cứ đâu (API hoặc Socket)
+  public async endRoom(roomId: string) {
+    try {
+      // Đảm bảo cập nhật DB (nếu Service chưa làm)
       await this.prisma.watchParty.update({
         where: { id: roomId },
         data: { is_active: false },
       });
 
+      // Gửi tín hiệu văng phòng cho tất cả user
       this.io.to(roomId).emit("wp:room_ended");
-    });
+      console.log(`📢 Room ${roomId} has been ended and notified via WebSocket.`);
+    } catch (error) {
+      console.error("Error in endRoom WebSocket:", error);
+    }
   }
 
   // --- XỬ LÝ NOTIFICATION EVENTS ---
