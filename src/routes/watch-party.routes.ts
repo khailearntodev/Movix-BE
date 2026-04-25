@@ -32,4 +32,7 @@ router.get('/:id', watchPartyController.getDetails);
 // 9. Lấy chi tiết phòng để quản lý
 router.get('/manage/:id', watchPartyController.getDetailsById);
 
+//10. Ban user khỏi phòng (chỉ host hoặc admin mới có quyền)
+router.post('/ban/:id', watchPartyController.banUser);
+
 export default router;

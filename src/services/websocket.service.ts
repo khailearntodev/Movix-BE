@@ -278,7 +278,7 @@ export class WebSocketService {
           where: { party_id_user_id: { party_id: roomId, user_id: userId } },
           data: { is_online: false },
         });
-      } catch (e) {}
+      } catch (e) { }
 
       const members = await this.getRoomMembers(roomId);
       this.io.to(roomId).emit("wp:update_members", members);
@@ -359,7 +359,7 @@ export class WebSocketService {
           where: { id: messageId },
           data: { is_flagged: true, flag_reason: reason },
         });
-      } catch (e) {}
+      } catch (e) { }
     });
 
     // 5. Đồng bộ Video (Play/Pause)
@@ -446,7 +446,7 @@ export class WebSocketService {
           },
           data: { is_online: false },
         });
-      } catch (e) {}
+      } catch (e) { }
 
       const members = await this.getRoomMembers(roomId);
       this.io.to(roomId).emit("wp:update_members", members);
@@ -454,31 +454,10 @@ export class WebSocketService {
 
     socket.on("wp:ban_user", async ({ roomId, userIdToBan }) => {
       const requesterId = socket.data.user.id;
-      if (!(await this.verifyHost(roomId, requesterId))) return;
-
-      const hostSub = await this.prisma.userSubscription.findUnique({
-        where: { user_id: requesterId },
-        include: { plan: true },
-      });
-
-      const canBan = hostSub?.status === "ACTIVE" && hostSub.plan?.can_kick_mute_members;
-
-      if (!canBan) {
-        socket.emit("wp:system_message", {
-          text: "Tính năng Ban thành viên vĩnh viễn chỉ dành cho gói Movix Ultimate.",
-          type: "error",
-        });
-        return;
-      }
-
+      
       try {
-        await this.prisma.watchPartyMember.update({
-          where: {
-            party_id_user_id: { party_id: roomId, user_id: userIdToBan },
-          },
-          data: { is_online: false, is_banned: true },
-        });
-
+        const { watchPartyService } = require('./watch-party.service');
+        await watchPartyService.banUser(requesterId, userIdToBan, roomId);
         this.io.to(roomId).emit("wp:banned", { userId: userIdToBan });
 
         const userSocketIds = this.userSockets.get(userIdToBan);
@@ -487,13 +466,20 @@ export class WebSocketService {
             const s = this.io.sockets.sockets.get(sid);
             if (s) {
               s.leave(roomId);
+              s.emit("wp:system_message", { text: "Bạn đã bị cấm khỏi phòng này.", type: "error" });
             }
           });
         }
 
+        // 4. Cập nhật danh sách thành viên cho những người còn lại
         const members = await this.getRoomMembers(roomId);
         this.io.to(roomId).emit("wp:update_members", members);
-      } catch (e) {}
+      } catch (error: any) {
+        socket.emit("wp:system_message", { 
+          text: error.message === "NOT_AUTHORIZED" ? "Bạn không có quyền ban thành viên." : "Lỗi khi thực hiện cấm người dùng.",
+          type: "error" 
+        });
+      }
     });
 
     socket.on("wp:mute_user", async ({ roomId, userIdToMute, mute }) => {
@@ -565,34 +551,53 @@ export class WebSocketService {
 
         const members = await this.getRoomMembers(roomId);
         this.io.to(roomId).emit("wp:update_members", members);
-      } catch (e) {}
+      } catch (e) { }
     });
 
     // 9. Kết thúc phòng
     socket.on("wp:end_room", async (roomId) => {
       const userId = socket.data.user.id;
       if (!(await this.verifyHost(roomId, userId))) return;
-
-      // Thay vì tự update DB, ta có thể để Service lo hoặc giữ nguyên ở đây
-      // Nhưng quan trọng là phải gọi hàm thông báo chung
       await this.endRoom(roomId);
     });
   }
 
-  // Hàm công khai để đóng phòng từ bất cứ đâu (API hoặc Socket)
   public async endRoom(roomId: string) {
     try {
-      // Đảm bảo cập nhật DB (nếu Service chưa làm)
       await this.prisma.watchParty.update({
         where: { id: roomId },
         data: { is_active: false },
       });
-
-      // Gửi tín hiệu văng phòng cho tất cả user
       this.io.to(roomId).emit("wp:room_ended");
-      console.log(`📢 Room ${roomId} has been ended and notified via WebSocket.`);
     } catch (error) {
       console.error("Error in endRoom WebSocket:", error);
+    }
+  }
+
+  public async banUser(userId: string, roomId: string) {
+    try {
+      // 1. Gửi tín hiệu thông báo ban
+      this.io.to(roomId).emit("wp:banned", { userId });
+
+      // 2. THỰC THI: Đuổi socket của người bị ban ra khỏi phòng
+      const userSocketIds = this.userSockets.get(userId);
+      if (userSocketIds) {
+        userSocketIds.forEach((sid) => {
+          const s = this.io.sockets.sockets.get(sid);
+          if (s) {
+            s.leave(roomId);
+            s.emit("wp:system_message", { text: "Bạn đã bị Admin cấm khỏi phòng này.", type: "error" });
+          }
+        });
+      }
+
+      // 3. Cập nhật danh sách thành viên cho những người còn lại
+      const members = await this.getRoomMembers(roomId);
+      this.io.to(roomId).emit("wp:update_members", members);
+      
+      console.log(`🚫 User ${userId} has been banned from room ${roomId} via API.`);
+    } catch (error) {
+      console.error("Error in banUser WebSocket:", error);
     }
   }
 

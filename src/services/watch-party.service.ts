@@ -372,4 +372,38 @@ export const watchPartyService = {
       pendingReports: totalReports,
     };
   },
+
+  banUser: async (hostUserId: string, userId: string, roomId: string) => {
+    try {
+      const party = await prisma.watchParty.findUnique({
+        where: { id: roomId },
+      });
+
+      if (!party) {
+        throw new Error("Phòng không tồn tại.");
+      }
+
+      if (party.host_user_id !== hostUserId) {
+        const adminUser = await prisma.user.findUnique({
+          where: { id: hostUserId },
+          include: { role: true }
+        });
+        
+        if (adminUser?.role?.name !== 'Admin') {
+           throw new Error("NOT_AUTHORIZED");
+        }
+      }
+
+      await prisma.watchPartyMember.update({
+        where: { party_id_user_id: { party_id: roomId, user_id: userId } },
+        data: { is_banned: true },
+      });
+
+      return { success: true, message: "Đã ban người dùng." };
+    } catch (error: any) {
+      if (error.message === "NOT_AUTHORIZED") throw error;
+      console.error("Error in banUser service:", error);
+      throw new Error("Error ban user");
+    }
+  },
 };

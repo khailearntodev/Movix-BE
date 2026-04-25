@@ -155,4 +155,23 @@ export const watchPartyController = {
       res.status(500).json({ message: "Lỗi khi lấy số liệu." });
     }
   },
+
+  banUser: async(req: Request, res: Response) => {
+    try {
+      const userId = req.userId!;
+      const { partyId } = req.params;
+      const { targetUserId } = req.body;
+
+      await watchPartyService.banUser(userId, targetUserId, partyId);
+      await webSocketService.banUser(targetUserId, partyId);
+      
+      return res.status(200).json({ success: true, message: "Đã ban thành viên khỏi phòng." });
+    } catch (error: any) {
+      if (error.message === "NOT_AUTHORIZED") {
+        return res.status(403).json({ message: "Bạn không có quyền thực hiện hành động này." });
+      }
+      console.error("Ban User Error:", error);
+      res.status(500).json({ message: "Lỗi khi ban thành viên." });
+    }
+  },
 };
