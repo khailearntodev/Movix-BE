@@ -406,4 +406,38 @@ export const watchPartyService = {
       throw new Error("Error ban user");
     }
   },
+
+  muteUser: async (hostUserId: string, userId: string, roomId: string, mute: boolean) => {
+    try {
+      const party = await prisma.watchParty.findUnique({
+        where: { id: roomId },
+      });
+
+      if (!party) {
+        throw new Error("Phòng không tồn tại.");
+      }
+
+      if (party.host_user_id !== hostUserId) {
+        const adminUser = await prisma.user.findUnique({
+          where: { id: hostUserId },
+          include: { role: true }
+        });
+        
+        if (adminUser?.role?.name !== 'Admin') {
+           throw new Error("NOT_AUTHORIZED");
+        }
+      }
+
+      await prisma.watchPartyMember.update({
+        where: { party_id_user_id: { party_id: roomId, user_id: userId } },
+        data: { is_muted: mute },
+      });
+
+      return { success: true, message: mute ? "Đã tắt tiếng người dùng." : "Đã mở tiếng người dùng." };
+    } catch (error: any) {
+      if (error.message === "NOT_AUTHORIZED") throw error;
+      console.error("Error in muteUser service:", error);
+      throw new Error("Error mute user");
+    }
+  },
 };

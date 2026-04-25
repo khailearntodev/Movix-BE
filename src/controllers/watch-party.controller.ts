@@ -159,7 +159,7 @@ export const watchPartyController = {
   banUser: async(req: Request, res: Response) => {
     try {
       const userId = req.userId!;
-      const { partyId } = req.params;
+      const { id: partyId } = req.params;
       const { targetUserId } = req.body;
 
       await watchPartyService.banUser(userId, targetUserId, partyId);
@@ -172,6 +172,28 @@ export const watchPartyController = {
       }
       console.error("Ban User Error:", error);
       res.status(500).json({ message: "Lỗi khi ban thành viên." });
+    }
+  },
+
+  muteUser: async(req: Request, res: Response) => {
+    try {
+      const userId = req.userId!;
+      const { id: partyId } = req.params;
+      const { targetUserId, mute } = req.body;
+
+      await watchPartyService.muteUser(userId, targetUserId, partyId, mute);
+      await webSocketService.muteUser(targetUserId, partyId, mute);
+      
+      return res.status(200).json({ 
+        success: true, 
+        message: mute ? "Đã tắt tiếng thành viên." : "Đã mở tiếng thành viên." 
+      });
+    } catch (error: any) {
+      if (error.message === "NOT_AUTHORIZED") {
+        return res.status(403).json({ message: "Bạn không có quyền thực hiện hành động này." });
+      }
+      console.error("Mute User Error:", error);
+      res.status(500).json({ message: "Lỗi khi tắt tiếng thành viên." });
     }
   },
 };

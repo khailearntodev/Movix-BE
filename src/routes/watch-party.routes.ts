@@ -33,6 +33,9 @@ router.get('/:id', watchPartyController.getDetails);
 router.get('/manage/:id', watchPartyController.getDetailsById);
 
 //10. Ban user khỏi phòng (chỉ host hoặc admin mới có quyền)
-router.post('/ban/:id', watchPartyController.banUser);
+router.patch('/ban/:id', watchPartyController.banUser);
+
+//11. Mute user trong phòng
+router.patch('/mute/:id', watchPartyController.muteUser);
 
 export default router;

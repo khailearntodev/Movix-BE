@@ -484,40 +484,24 @@ export class WebSocketService {
 
     socket.on("wp:mute_user", async ({ roomId, userIdToMute, mute }) => {
       const hostId = socket.data.user.id;
-      if (!(await this.verifyHost(roomId, hostId))) return;
+      
+      try {
+        const { watchPartyService } = require('./watch-party.service');
+        await watchPartyService.muteUser(hostId, userIdToMute, roomId, mute);
 
-      const hostSub = await this.prisma.userSubscription.findUnique({
-        where: { user_id: hostId },
-        include: { plan: true },
-      });
+        const targetSockets = this.userSockets.get(userIdToMute);
+        if (targetSockets) {
+          this.io.to([...targetSockets]).emit("wp:muted_status", { isMuted: mute });
+        }
 
-      const canMute =
-        hostSub?.status === "ACTIVE" && hostSub.plan?.can_kick_mute_members;
-
-      if (!canMute) {
-        socket.emit("wp:system_message", {
-          text: "Bạn cần gói Movix Ultimate để sử dụng tính năng Mute thành viên.",
-          type: "error",
+        const members = await this.getRoomMembers(roomId);
+        this.io.to(roomId).emit("wp:update_members", members);
+      } catch (error: any) {
+        socket.emit("wp:system_message", { 
+          text: error.message === "NOT_AUTHORIZED" ? "Bạn không có quyền thực hiện." : "Lỗi khi tắt tiếng.",
+          type: "error" 
         });
-        return;
       }
-
-      await this.prisma.watchPartyMember.update({
-        where: {
-          party_id_user_id: { party_id: roomId, user_id: userIdToMute },
-        },
-        data: { is_muted: mute },
-      });
-
-      const targetSockets = this.userSockets.get(userIdToMute);
-      if (targetSockets) {
-        this.io
-          .to([...targetSockets])
-          .emit("wp:muted_status", { isMuted: mute });
-      }
-
-      const members = await this.getRoomMembers(roomId);
-      this.io.to(roomId).emit("wp:update_members", members);
     });
 
     socket.on("wp:transfer_host", async ({ roomId, newHostId }) => {
@@ -576,10 +560,8 @@ export class WebSocketService {
 
   public async banUser(userId: string, roomId: string) {
     try {
-      // 1. Gửi tín hiệu thông báo ban
       this.io.to(roomId).emit("wp:banned", { userId });
 
-      // 2. THỰC THI: Đuổi socket của người bị ban ra khỏi phòng
       const userSocketIds = this.userSockets.get(userId);
       if (userSocketIds) {
         userSocketIds.forEach((sid) => {
@@ -591,13 +573,27 @@ export class WebSocketService {
         });
       }
 
-      // 3. Cập nhật danh sách thành viên cho những người còn lại
       const members = await this.getRoomMembers(roomId);
       this.io.to(roomId).emit("wp:update_members", members);
       
       console.log(`🚫 User ${userId} has been banned from room ${roomId} via API.`);
     } catch (error) {
       console.error("Error in banUser WebSocket:", error);
+    }
+  }
+
+  public async muteUser(userId: string, roomId: string, isMuted: boolean) {
+    try {
+      const targetSockets = this.userSockets.get(userId);
+      if (targetSockets) {
+        this.io.to([...targetSockets]).emit("wp:muted_status", { isMuted });
+      }
+      const members = await this.getRoomMembers(roomId);
+      this.io.to(roomId).emit("wp:update_members", members);
+      
+      console.log(`🔇 User ${userId} has been ${isMuted ? 'muted' : 'unmuted'} in room ${roomId} via API.`);
+    } catch (error) {
+      console.error("Error in muteUser WebSocket:", error);
     }
   }
 
