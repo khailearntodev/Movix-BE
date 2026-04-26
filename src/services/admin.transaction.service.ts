@@ -194,3 +194,116 @@ export const getStats = async () => {
         refunded: refundCount,
     }
 }
+
+export const getAllRefundRequests = async (
+    page: number,
+    take: number,
+    filterStatus: string
+) => {
+    const skip = (page - 1) * take;
+    const where: Prisma.RefundRequestWhereInput = {};
+
+    if (filterStatus && filterStatus !== 'ALL') {
+        where.status = filterStatus as any;
+    }
+
+    const [requests, total] = await Promise.all([
+        prisma.refundRequest.findMany({
+            take,
+            skip,
+            where,
+            orderBy: {
+                created_at: 'desc'
+            },
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        email: true,
+                        display_name: true,
+                        avatar_url: true,
+                    }
+                },
+                transaction: {
+                    select: {
+                        id: true,
+                        transaction_ref: true,
+                        amount: true,
+                        status: true,
+                        created_at: true,
+                    }
+                }
+            }
+        }),
+        prisma.refundRequest.count({ where })
+    ]);
+
+    return {
+        data: requests,
+        meta: {
+            total,
+            page,
+            lastPages: Math.ceil(total / take)
+        }
+    };
+};
+
+export const createRefundRequest = async (transactionId: string, reason: string) => {
+    const transaction = await prisma.transaction.findUnique({
+        where: { id: transactionId }
+    });
+
+    if (!transaction) throw new Error("Giao dịch không tồn tại");
+    if (transaction.status !== TransactionStatus.COMPLETED) {
+        throw new Error("Chỉ có thể tạo yêu cầu hoàn tiền cho giao dịch đã hoàn thành");
+    }
+
+    const existingRequest = await prisma.refundRequest.findFirst({
+        where: {
+            transaction_id: transactionId,
+            status: {
+                in: ['PENDING', 'APPROVED']
+            }
+        }
+    });
+
+    if (existingRequest) {
+        throw new Error("Giao dịch này đã có yêu cầu hoàn tiền đang chờ hoặc đã được chấp nhận");
+    }
+
+    // Create the refund request
+    const refundRequest = await prisma.refundRequest.create({
+        data: {
+            user_id: transaction.user_id,
+            transaction_id: transactionId,
+            reason: reason || "Yêu cầu hoàn tiền từ Admin"
+        }
+    });
+
+    return refundRequest;
+};
+
+export const processRefundRequest = async (requestId: string, action: 'APPROVE' | 'REJECT') => {
+    const refundRequest = await prisma.refundRequest.findUnique({
+        where: { id: requestId },
+        include: { transaction: true }
+    });
+
+    if (!refundRequest) throw new Error("Yêu cầu hoàn tiền không tồn tại");
+    if (refundRequest.status !== 'PENDING') {
+        throw new Error("Chỉ có thể xử lý yêu cầu đang ở trạng thái PENDING");
+    }
+
+    const newStatus = action === 'APPROVE' ? 'APPROVED' : 'REJECTED';
+
+    const updatedRequest = await prisma.refundRequest.update({
+        where: { id: requestId },
+        data: { status: newStatus }
+    });
+
+    if (action === 'APPROVE') {
+        await updateTransactionStatus(refundRequest.transaction_id, TransactionStatus.REFUNDED);
+    }
+
+    return updatedRequest;
+};
