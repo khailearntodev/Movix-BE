@@ -56,6 +56,7 @@ const generateTokens = async (userId: string, deviceInfo?: any, ipAddress?: stri
       where: {
         userId,
         is_revoked: false,
+        expiresAt: { gt: new Date() },
         ...(oldTokenId ? { id: { not: oldTokenId } } : {})
       }
     });
