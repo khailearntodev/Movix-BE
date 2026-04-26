@@ -14,4 +14,14 @@ router.patch('/update-status/:id', transactionController.updateTransactionStatus
 
 //GET /api/admin/transactions/get-stats
 router.get('/get-stats', transactionController.getStats)
+
+// GET /api/admin/transactions/refunds
+router.get('/refunds', transactionController.getAllRefundRequests);
+
+// POST /api/admin/transactions/refunds
+router.post('/refunds', transactionController.createRefundRequest);
+
+// PATCH /api/admin/transactions/refunds/:id/process
+router.patch('/refunds/:id/process', transactionController.processRefundRequest);
+
 export default router;

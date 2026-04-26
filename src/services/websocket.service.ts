@@ -278,7 +278,7 @@ export class WebSocketService {
           where: { party_id_user_id: { party_id: roomId, user_id: userId } },
           data: { is_online: false },
         });
-      } catch (e) {}
+      } catch (e) { }
 
       const members = await this.getRoomMembers(roomId);
       this.io.to(roomId).emit("wp:update_members", members);
@@ -359,7 +359,7 @@ export class WebSocketService {
           where: { id: messageId },
           data: { is_flagged: true, flag_reason: reason },
         });
-      } catch (e) {}
+      } catch (e) { }
     });
 
     // 5. Đồng bộ Video (Play/Pause)
@@ -446,7 +446,7 @@ export class WebSocketService {
           },
           data: { is_online: false },
         });
-      } catch (e) {}
+      } catch (e) { }
 
       const members = await this.getRoomMembers(roomId);
       this.io.to(roomId).emit("wp:update_members", members);
@@ -454,31 +454,10 @@ export class WebSocketService {
 
     socket.on("wp:ban_user", async ({ roomId, userIdToBan }) => {
       const requesterId = socket.data.user.id;
-      if (!(await this.verifyHost(roomId, requesterId))) return;
-
-      const hostSub = await this.prisma.userSubscription.findUnique({
-        where: { user_id: requesterId },
-        include: { plan: true },
-      });
-
-      const canBan = hostSub?.status === "ACTIVE" && hostSub.plan?.can_kick_mute_members;
-
-      if (!canBan) {
-        socket.emit("wp:system_message", {
-          text: "Tính năng Ban thành viên vĩnh viễn chỉ dành cho gói Movix Ultimate.",
-          type: "error",
-        });
-        return;
-      }
-
+      
       try {
-        await this.prisma.watchPartyMember.update({
-          where: {
-            party_id_user_id: { party_id: roomId, user_id: userIdToBan },
-          },
-          data: { is_online: false, is_banned: true },
-        });
-
+        const { watchPartyService } = require('./watch-party.service');
+        await watchPartyService.banUser(requesterId, userIdToBan, roomId);
         this.io.to(roomId).emit("wp:banned", { userId: userIdToBan });
 
         const userSocketIds = this.userSockets.get(userIdToBan);
@@ -487,51 +466,42 @@ export class WebSocketService {
             const s = this.io.sockets.sockets.get(sid);
             if (s) {
               s.leave(roomId);
+              s.emit("wp:system_message", { text: "Bạn đã bị cấm khỏi phòng này.", type: "error" });
             }
           });
         }
 
+        // 4. Cập nhật danh sách thành viên cho những người còn lại
         const members = await this.getRoomMembers(roomId);
         this.io.to(roomId).emit("wp:update_members", members);
-      } catch (e) {}
+      } catch (error: any) {
+        socket.emit("wp:system_message", { 
+          text: error.message === "NOT_AUTHORIZED" ? "Bạn không có quyền ban thành viên." : "Lỗi khi thực hiện cấm người dùng.",
+          type: "error" 
+        });
+      }
     });
 
     socket.on("wp:mute_user", async ({ roomId, userIdToMute, mute }) => {
       const hostId = socket.data.user.id;
-      if (!(await this.verifyHost(roomId, hostId))) return;
+      
+      try {
+        const { watchPartyService } = require('./watch-party.service');
+        await watchPartyService.muteUser(hostId, userIdToMute, roomId, mute);
 
-      const hostSub = await this.prisma.userSubscription.findUnique({
-        where: { user_id: hostId },
-        include: { plan: true },
-      });
+        const targetSockets = this.userSockets.get(userIdToMute);
+        if (targetSockets) {
+          this.io.to([...targetSockets]).emit("wp:muted_status", { isMuted: mute });
+        }
 
-      const canMute =
-        hostSub?.status === "ACTIVE" && hostSub.plan?.can_kick_mute_members;
-
-      if (!canMute) {
-        socket.emit("wp:system_message", {
-          text: "Bạn cần gói Movix Ultimate để sử dụng tính năng Mute thành viên.",
-          type: "error",
+        const members = await this.getRoomMembers(roomId);
+        this.io.to(roomId).emit("wp:update_members", members);
+      } catch (error: any) {
+        socket.emit("wp:system_message", { 
+          text: error.message === "NOT_AUTHORIZED" ? "Bạn không có quyền thực hiện." : "Lỗi khi tắt tiếng.",
+          type: "error" 
         });
-        return;
       }
-
-      await this.prisma.watchPartyMember.update({
-        where: {
-          party_id_user_id: { party_id: roomId, user_id: userIdToMute },
-        },
-        data: { is_muted: mute },
-      });
-
-      const targetSockets = this.userSockets.get(userIdToMute);
-      if (targetSockets) {
-        this.io
-          .to([...targetSockets])
-          .emit("wp:muted_status", { isMuted: mute });
-      }
-
-      const members = await this.getRoomMembers(roomId);
-      this.io.to(roomId).emit("wp:update_members", members);
     });
 
     socket.on("wp:transfer_host", async ({ roomId, newHostId }) => {
@@ -565,21 +535,92 @@ export class WebSocketService {
 
         const members = await this.getRoomMembers(roomId);
         this.io.to(roomId).emit("wp:update_members", members);
-      } catch (e) {}
+      } catch (e) { }
     });
 
     // 9. Kết thúc phòng
     socket.on("wp:end_room", async (roomId) => {
       const userId = socket.data.user.id;
       if (!(await this.verifyHost(roomId, userId))) return;
+      await this.endRoom(roomId);
+    });
+  }
 
+  public async endRoom(roomId: string) {
+    try {
       await this.prisma.watchParty.update({
         where: { id: roomId },
         data: { is_active: false },
       });
-
       this.io.to(roomId).emit("wp:room_ended");
-    });
+    } catch (error) {
+      console.error("Error in endRoom WebSocket:", error);
+    }
+  }
+
+  public async banUser(userId: string, roomId: string) {
+    try {
+      this.io.to(roomId).emit("wp:banned", { userId });
+
+      const userSocketIds = this.userSockets.get(userId);
+      if (userSocketIds) {
+        userSocketIds.forEach((sid) => {
+          const s = this.io.sockets.sockets.get(sid);
+          if (s) {
+            s.leave(roomId);
+            s.emit("wp:system_message", { text: "Bạn đã bị Admin cấm khỏi phòng này.", type: "error" });
+          }
+        });
+      }
+
+      const members = await this.getRoomMembers(roomId);
+      this.io.to(roomId).emit("wp:update_members", members);
+      
+      console.log(`🚫 User ${userId} has been banned from room ${roomId} via API.`);
+    } catch (error) {
+      console.error("Error in banUser WebSocket:", error);
+    }
+  }
+
+  public async muteUser(userId: string, roomId: string, isMuted: boolean) {
+    try {
+      const targetSockets = this.userSockets.get(userId);
+      if (targetSockets) {
+        this.io.to([...targetSockets]).emit("wp:muted_status", { isMuted });
+      }
+      const members = await this.getRoomMembers(roomId);
+      this.io.to(roomId).emit("wp:update_members", members);
+      
+      console.log(`🔇 User ${userId} has been ${isMuted ? 'muted' : 'unmuted'} in room ${roomId} via API.`);
+    } catch (error) {
+      console.error("Error in muteUser WebSocket:", error);
+    }
+  }
+
+  public async deleteMessage(messageId: string, roomId: string) {
+    try {
+      this.io.to(roomId).emit('wp:message_deleted', { messageId });
+      console.log(`🗑️ Message ${messageId} deleted from room ${roomId}`);
+    } catch (error) {
+      console.error('Error deleting message:', error);
+    }
+  }
+
+  public async releaseMessage(message: any, roomId: string) {
+    try {
+      this.io.to(roomId).emit("wp:new_message", {
+        id: message.id,
+        userId: message.user_id,
+        username: message.user?.username || "Unknown",
+        avatar: message.user?.avatar_url,
+        message: message.message,
+        isSpoiler: message.is_spoiler,
+        createdAt: message.created_at,
+      });
+      console.log(`✅ Message ${message.id} released to room ${roomId}`);
+    } catch (error) {
+      console.error("Error releasing message:", error);
+    }
   }
 
   // --- XỬ LÝ NOTIFICATION EVENTS ---
