@@ -138,11 +138,13 @@ export const watchPartyController = {
 
   getDetailsById: async (req: Request, res: Response) => {
     try {
-      const { partyId } = req.params;
-      const room = await watchPartyService.getDetailsById(partyId);
+      const { id } = req.params;
+      const room = await watchPartyService.getDetailsById(id);
       return res.status(200).json(room);
     } catch (error: any) {
       if (error.message === "PARTY_NOT_FOUND") return res.status(404).json({ message: "Phòng không tồn tại." });
+      console.error("Get Details By Id Error:", error);
+      res.status(500).json({ message: "Lỗi khi lấy thông tin phòng." });
     }
   },
 
@@ -227,8 +229,13 @@ export const watchPartyController = {
       const isDeleted = action === "delete";
       const result = await watchPartyService.resolveFlaggedMessage(userId, messageId, isDeleted);
 
-      if (isDeleted && result.partyId) {
-        await webSocketService.deleteMessage(messageId, result.partyId);
+      if (result.partyId) {
+        if (isDeleted) {
+          await webSocketService.deleteMessage(messageId, result.partyId);
+        } else {
+          // Nếu là ignore (Bỏ qua), thì "nhả" tin nhắn ra cho cả phòng thấy
+          await webSocketService.releaseMessage(result.data, result.partyId);
+        }
       }
 
       return res.status(200).json({

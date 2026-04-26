@@ -171,6 +171,28 @@ export const watchPartyService = {
         episodeInfo: (room.episode && room.movie?.media_type === 'TV') ? {
           season: room.episode.season.season_number,
           episode: room.episode.episode_number
+        } : null,
+        isActive: room.is_active,
+        is_active: room.is_active,
+        startedAt: room.started_at,
+        started_at: room.started_at,
+        joinCode: room.join_code,
+        join_code: room.join_code,
+        is_private: room.is_private,
+        max_participants: room.max_participants,
+        host_user: {
+          username: room.host_user.username,
+          avatar_url: room.host_user.avatar_url,
+          display_name: room.host_user.display_name
+        },
+        movie: room.movie ? {
+          title: room.movie.title,
+          poster_url: room.movie.poster_url,
+          backdrop_url: room.movie.backdrop_url
+        } : null,
+        episode: room.episode ? {
+          title: room.episode.title,
+          episode_number: room.episode.episode_number
         } : null
       };
     });
@@ -203,11 +225,17 @@ export const watchPartyService = {
 
     if (!party) throw new Error("PARTY_NOT_FOUND");
 
-    if (party.host_user_id !== userId) {
-      throw new Error("NOT_HOST");
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { role: true }
+    });
+    const isAdmin = user?.role?.name === 'Admin';
+
+    if (party.host_user_id !== userId && !isAdmin) {
+      throw new Error("NOT_AUTHORIZED");
     }
 
-    if (party.started_at) {
+    if (party.started_at && !isAdmin) {
       throw new Error("PARTY_ALREADY_STARTED");
     }
 
@@ -226,11 +254,14 @@ export const watchPartyService = {
       throw new Error("PARTY_NOT_FOUND");
     }
 
-    if (party.host_user_id !== userId) {
-      const user = await prisma.user.findUnique({ where: { id: userId }, include: { role: true } });
-      if (user?.role?.name !== 'Admin') {
-        throw new Error("NOT_HOST");
-      }
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { role: true }
+    });
+    const isAdmin = user?.role?.name === 'Admin';
+
+    if (party.host_user_id !== userId && !isAdmin) {
+      throw new Error("NOT_AUTHORIZED");
     }
 
     return prisma.watchParty.update({
@@ -324,6 +355,7 @@ export const watchPartyService = {
                 id: true,
                 username: true,
                 display_name: true,
+                email: true,
                 avatar_url: true,
               },
             },
@@ -500,10 +532,16 @@ export const watchPartyService = {
         data: { is_flagged: false, is_deleted: isDeleted },
       });
 
+      const updatedMessage = await prisma.watchPartyMessage.findUnique({
+        where: { id: messageId },
+        include: { user: { select: { id: true, username: true, avatar_url: true } } }
+      });
+
       return {
         success: true,
         message: "Đã giải quyết tin nhắn.",
-        partyId: message.party_id
+        partyId: message.party_id,
+        data: updatedMessage
       };
     } catch (error: any) {
       if (error.message === "NOT_AUTHORIZED") throw error;

@@ -606,6 +606,23 @@ export class WebSocketService {
     }
   }
 
+  public async releaseMessage(message: any, roomId: string) {
+    try {
+      this.io.to(roomId).emit("wp:new_message", {
+        id: message.id,
+        userId: message.user_id,
+        username: message.user?.username || "Unknown",
+        avatar: message.user?.avatar_url,
+        message: message.message,
+        isSpoiler: message.is_spoiler,
+        createdAt: message.created_at,
+      });
+      console.log(`✅ Message ${message.id} released to room ${roomId}`);
+    } catch (error) {
+      console.error("Error releasing message:", error);
+    }
+  }
+
   // --- XỬ LÝ NOTIFICATION EVENTS ---
   private handleSocketEvents(socket: any): void {
     const userId = socket.data.user.id;
