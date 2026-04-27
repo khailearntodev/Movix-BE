@@ -48,10 +48,36 @@ export const getAllReports = async (
     },
   });
 
+  const reportsWithTargetData = await Promise.all(
+    reports.map(async (report) => {
+      let targetData = null;
+      try {
+        if (report.target_type === 'COMMENT') {
+          targetData = await prisma.comment.findUnique({
+            where: { id: report.target_id },
+            select: { comment: true, movie: { select: { title: true, slug: true } } },
+          });
+        } else if (report.target_type === 'USER') {
+          targetData = await prisma.user.findUnique({
+            where: { id: report.target_id },
+            select: { display_name: true, email: true, avatar_url: true },
+          });
+        }
+      } catch (error) {
+        console.error(`Error fetching targetData for report ${report.id}`, error);
+      }
+
+      return {
+        ...report,
+        targetData,
+      };
+    })
+  );
+
   const total = await prisma.report.count({ where });
 
   return {
-    reports,
+    reports: reportsWithTargetData,
     total,
     totalPages: Math.ceil(total / take),
   };
