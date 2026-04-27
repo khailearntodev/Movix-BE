@@ -413,6 +413,7 @@ model Playlist {
   created_at  DateTime @default(now())
   updated_at  DateTime @updatedAt
   is_deleted  Boolean  @default(false)
+  is_public   Boolean  @default(false)
 
   user            User            @relation(fields: [user_id], references: [id], onDelete: Cascade)
   playlist_movies PlaylistMovie[]
