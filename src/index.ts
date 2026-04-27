@@ -30,6 +30,8 @@ import adminSubscriptionRoutes from './routes/admin.subscription.routes';
 import downloadRoutes from './routes/download.route';
 import { startCronJobs } from './services/cron.service';
 import adminTransactionRoutes from './routes/admin.transaction.routes';
+import reportRoutes from './routes/report.routes';
+import adminReportRoutes from './routes/admin.report.routes';
 
 const app = express();
 const server = createServer(app);
@@ -78,6 +80,9 @@ app.use('/api/downloads', downloadRoutes);
 
 app.use("/api/livekit", livekitRoutes);
 app.use("/api/admin/subscriptions", adminSubscriptionRoutes);
+
+app.use('/api/reports', reportRoutes);
+app.use('/api/admin/reports', adminReportRoutes);
 app.get('/api', (req, res) => {
   res.send('Movix BE is running!');
 });
