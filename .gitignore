@@ -112,3 +112,5 @@ vite.config.ts.timestamp-*
 Thumbs.db
 
 *.pyc
+*.pkl
+*.faiss
