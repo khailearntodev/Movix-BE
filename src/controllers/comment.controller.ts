@@ -126,4 +126,16 @@ export const commentController = {
       res.status(500).json({ message: 'Lỗi máy chủ' });
     }
   },
+  getCommentById: async (req: Request, res: Response) => {
+    try {
+      const { commentId } = req.params;
+      const comment = await commentService.getCommentById(commentId);
+      if (!comment) {
+        return res.status(404).json({ message: 'Không tìm thấy bình luận' });
+      }
+      res.status(200).json(comment);
+    } catch (error) {
+      res.status(500).json({ message: 'Lỗi máy chủ' });
+    }
+    },
 };

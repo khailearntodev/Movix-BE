@@ -21,6 +21,9 @@ router.delete('/:commentId', commentController.deleteComment);
 // --- ADMIN ROUTES ---
 // GET /api/comments/admin
 router.get('/admin/list', adminCommentController.getAll);
+
+router.get('/admin/:commentId', commentController.getCommentById);
+
 // PUT /api/comments/admin/:id/toggle-hide
 router.put('/admin/:id/toggle-hide', adminCommentController.toggleHide);
 // DELETE /api/comments/admin/:id
