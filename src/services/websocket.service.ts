@@ -19,20 +19,22 @@ export class WebSocketService {
 
           const allowedOrigins = [
             "http://localhost:3000",
+            "http://localhost:19000", 
+            "http://localhost:8081",  
             "https://movix-fe.vercel.app",
             "https://movix-be.onrender.com",
-            "http://13.212.20.97:5000",
+            "https://movix.io.vn",   
+            "https://api.movix.io.vn", 
             process.env.CLIENT_URL,
             process.env.FRONTEND_URL,
             process.env.FRONTEND_LAN_URL,
-            ...(process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(",") : [])
-          ];
+          ].filter(Boolean);
 
-          if (allowedOrigins.includes(requestOrigin)) {
+          if (allowedOrigins.includes(requestOrigin) || allowedOrigins.some(o => requestOrigin.startsWith(o as string))) {
             return callback(null, true);
           }
 
-          if (requestOrigin.startsWith("http://192.168.")) {
+          if (requestOrigin.startsWith("http://192.168.") || requestOrigin.startsWith("http://10.0.") || requestOrigin === "http://localhost") {
             return callback(null, true);
           }
 
