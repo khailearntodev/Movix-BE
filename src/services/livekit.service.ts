@@ -24,6 +24,10 @@ export class LiveKitService {
             select: { username: true, display_name: true },
         });
 
+        if (!process.env.LIVEKIT_API_KEY || !process.env.LIVEKIT_API_SECRET) {
+            throw new Error('Server chưa cấu hình LiveKit API Key hoặc Secret');
+        }
+
         const at = new AccessToken(
             process.env.LIVEKIT_API_KEY,
             process.env.LIVEKIT_API_SECRET,
