@@ -26,6 +26,7 @@ export class WebSocketService {
             "https://movix.io.vn",   
             "https://api.movix.io.vn", 
             process.env.CLIENT_URL,
+            process.env.FRONTEND_URL,
             process.env.FRONTEND_LAN_URL,
           ].filter(Boolean);
 

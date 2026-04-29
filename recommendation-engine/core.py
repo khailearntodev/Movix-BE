@@ -136,7 +136,7 @@ def get_recommendations(movie_id, k=10):
         return {"error": f"Movie ID {movie_id} not found in index."}
 
     idx = int(matches.index[0])
-    query_vector = state.index.reconstruct(idx).reshape(1, -1).astype(np.float32)
+    query_vector = state.item_vectors[idx].reshape(1, -1).astype(np.float32)
     distances, indices = state.index.search(query_vector, k + 1)
 
     result_ids = []
