@@ -9,8 +9,14 @@ export class LiveKitService {
             where: { id: roomId },
         });
 
-        if (!party || !party.is_active || !party.is_voice_chat_enabled) {
-            throw new Error('Không tìm thấy phòng hoặc phòng không hỗ trợ voice chat');
+        if (!party) {
+            throw new Error('Không tìm thấy phòng');
+        }
+        if (!party.is_active) {
+            throw new Error('Phòng này đã kết thúc hoặc không còn hoạt động');
+        }
+        if (!party.is_voice_chat_enabled) {
+            throw new Error('Tính năng Voice Chat không được bật cho phòng này');
         }
 
         const username = await prisma.user.findUnique({

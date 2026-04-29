@@ -13,7 +13,7 @@ services:
     networks:
       - movix_network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -29,7 +29,7 @@ services:
     volumes:
       - .:/app
       - /app/node_modules
-    command: sh -c "npx prisma generate && npx prisma migrate deploy && npm run build && npm start"
+    command: sh -c "npx prisma generate && npm run build && npm start"
     depends_on:
       db:
         condition: service_healthy
@@ -39,7 +39,7 @@ services:
       - movix_network
 
   ai_engine:
-    build: 
+    build:
       context: ./recommendation-engine
     ports:
       - "8000:8000"
@@ -48,7 +48,7 @@ services:
     env_file:
       - ./.env
     environment:
-    - DATABASE_URL=${DATABASE_URL}
+      - DATABASE_URL=${DATABASE_URL}
     depends_on:
       db:
         condition: service_healthy

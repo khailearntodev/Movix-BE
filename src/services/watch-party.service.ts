@@ -79,6 +79,7 @@ export const watchPartyService = {
         scheduled_at: data.scheduledAt ? new Date(data.scheduledAt) : null,
         started_at: startedAt,
         is_active: true,
+        is_voice_chat_enabled: true,
         members: {
           create: {
             user_id: userId,
