@@ -335,6 +335,7 @@ model Comment {
   created_at        DateTime @default(now())
   updated_at        DateTime @updatedAt
   is_deleted        Boolean  @default(false)
+  is_pinned         Boolean  @default(false)
 
   user           User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
   movie          Movie     @relation(fields: [movie_id], references: [id], onDelete: Cascade)
@@ -779,6 +780,7 @@ model Report {
   resolved_at DateTime?
   resolved_by String?          @db.Uuid
   resolution_note String?      // Ghi chú cách xử lý
+  priority_level Int          @default(0)
 
   reporter User  @relation("UserReports", fields: [reporter_id], references: [id], onDelete: Cascade)
   resolver User? @relation("AdminResolvers", fields: [resolved_by], references: [id], onDelete: SetNull)
