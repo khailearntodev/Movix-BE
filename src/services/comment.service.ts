@@ -1,5 +1,7 @@
 import { prisma } from '../lib/prisma';
 import { notificationService } from '../index';
+import { gamificationEmitter } from '../events/gamification.events';
+
 export const getCommentsByMovie = async (movieId: string) => {
   return prisma.comment.findMany({
     where: {
@@ -60,6 +62,11 @@ export const createComment = async (
       toxicity_score: toxicityScore || 0, 
       is_hidden: isHidden || false,
     },
+  });
+
+  gamificationEmitter.emit('USER_EARNED_XP', {
+    userId,
+    action: 'CREATE_COMMENT'
   });
 
   try {

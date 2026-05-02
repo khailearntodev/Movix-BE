@@ -1,4 +1,5 @@
 import { prisma } from '../lib/prisma';
+import { gamificationEmitter } from '../events/gamification.events';
 
 
 export const toggleFavorite = async (userId: string, movieId: string) => {
@@ -235,6 +236,11 @@ export const upsertRating = async (userId: string, movieId: string, ratingValue:
       movie_id: movieId,
       rating: ratingValue,
     },
+  });
+
+  gamificationEmitter.emit('USER_EARNED_XP', {
+    userId,
+    action: 'RATE_MOVIE',
   });
 
   const stats = await getMovieRatingStats(movieId);
