@@ -78,129 +78,201 @@ export const createAchievement = async (data: {
   reward_xp: number;
   is_active?: boolean;
 }) => {
-    const existingAchievement = await prisma.achievement.findUnique({
-        where: { name: data.name },
-    });
+  const existingAchievement = await prisma.achievement.findUnique({
+    where: { name: data.name },
+  });
 
-    if (existingAchievement) {
-        throw new Error("ACHIEVEMENT_ALREADY_EXISTS");
-    }
+  if (existingAchievement) {
+    throw new Error("ACHIEVEMENT_ALREADY_EXISTS");
+  }
 
-    const achievement = await prisma.achievement.create({
-        data: {
-            name: data.name,
-            description: data.description,
-            icon_url: data.icon_url,
-            condition_type: data.condition_type,
-            condition_value: data.condition_value,
-            reward_xp: data.reward_xp,
-            is_active: data.is_active ?? true,
-        },
-    });
-    return achievement;
+  const achievement = await prisma.achievement.create({
+    data: {
+      name: data.name,
+      description: data.description,
+      icon_url: data.icon_url,
+      condition_type: data.condition_type,
+      condition_value: data.condition_value,
+      reward_xp: data.reward_xp,
+      is_active: data.is_active ?? true,
+    },
+  });
+  return achievement;
 };
 
 export const updateAchievement = async (id: string, data: {
-    name?: string;
-    description?: string;
-    icon_url?: string;
-    condition_type?: string;
-    condition_value?: number;
-    reward_xp?: number;
-    is_active?: boolean;
+  name?: string;
+  description?: string;
+  icon_url?: string;
+  condition_type?: string;
+  condition_value?: number;
+  reward_xp?: number;
+  is_active?: boolean;
 }) => {
-    const achievement = await prisma.achievement.findUnique({
-        where: { id },
-    });
+  const achievement = await prisma.achievement.findUnique({
+    where: { id },
+  });
 
-    if (!achievement) {
-        throw new Error("ACHIEVEMENT_NOT_FOUND");
-    }
+  if (!achievement) {
+    throw new Error("ACHIEVEMENT_NOT_FOUND");
+  }
 
-    const updatedAchievement = await prisma.achievement.update({
-        where: { id },
-        data: {
-            name: data.name,
-            description: data.description,
-            icon_url: data.icon_url,
-            condition_type: data.condition_type,
-            condition_value: data.condition_value,
-            reward_xp: data.reward_xp,
-            is_active: data.is_active,
-        },    });
-    return updatedAchievement;
+  const updatedAchievement = await prisma.achievement.update({
+    where: { id },
+    data: {
+      name: data.name,
+      description: data.description,
+      icon_url: data.icon_url,
+      condition_type: data.condition_type,
+      condition_value: data.condition_value,
+      reward_xp: data.reward_xp,
+      is_active: data.is_active,
+    },
+  });
+  return updatedAchievement;
 };
 
 export const toggleAchievement = async (id: string) => {
-    const achievement = await prisma.achievement.findUnique({
-        where: { id },
-    });
+  const achievement = await prisma.achievement.findUnique({
+    where: { id },
+  });
 
-    if (!achievement) {
-        throw new Error("ACHIEVEMENT_NOT_FOUND");
-    }
+  if (!achievement) {
+    throw new Error("ACHIEVEMENT_NOT_FOUND");
+  }
 
-    const toggledAchievement = await prisma.achievement.update({
-        where: { id },
-        data: { is_active: !achievement.is_active },
-    });
-    return toggledAchievement;
+  const toggledAchievement = await prisma.achievement.update({
+    where: { id },
+    data: { is_active: !achievement.is_active },
+  });
+  return toggledAchievement;
 };
 
 export const getUserAchievements = async (userId: string) => {
   const userAchievements = await prisma.userAchievement.findMany({
     where: { user_id: userId },
     include: {
-        achievement: true,
+      achievement: true,
     },
   });
   return userAchievements;
 };
 
 export const grantXPToUser = async (userId: string, xp: number) => {
-    const user = await prisma.user.findUnique({
-        where: { id: userId },
-    });
-    if (!user) {
-        throw new Error("USER_NOT_FOUND");
-    }
-    const newXP = user.xp + xp;
-    const updatedUser = await prisma.user.update({
-        where: { id: userId },  
-        data: { xp: newXP },
-    });
-    return updatedUser;
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+  });
+  if (!user) {
+    throw new Error("USER_NOT_FOUND");
+  }
+  const newXP = user.xp + xp;
+  const updatedUser = await prisma.user.update({
+    where: { id: userId },
+    data: { xp: newXP },
+  });
+  return updatedUser;
 };
 
 export const grantAchievementToUser = async (userId: string, achievementId: string) => {
-    const user = await prisma.user.findUnique({
-        where: { id: userId },
-    });
-    if (!user) {
-        throw new Error("USER_NOT_FOUND");
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+  });
+  if (!user) {
+    throw new Error("USER_NOT_FOUND");
+  }
+  const achievement = await prisma.achievement.findUnique({
+    where: { id: achievementId },
+  });
+  if (!achievement) {
+    throw new Error("ACHIEVEMENT_NOT_FOUND");
+  }
+  const existingUserAchievement = await prisma.userAchievement.findUnique({
+    where: {
+      user_id_achievement_id: {
+        user_id: userId,
+        achievement_id: achievementId,
+      },
+    },
+  });
+  if (existingUserAchievement) {
+    throw new Error("USER_ALREADY_HAS_ACHIEVEMENT");
+  }
+  const userAchievement = await prisma.userAchievement.create({
+    data: {
+      user_id: userId,
+      achievement_id: achievementId,
+    },
+  });
+  return userAchievement;
+};
+
+export const deleteAchievement = async (id: string) => {
+  const achievement = await prisma.achievement.findUnique({
+    where: { id },
+  });
+  if (!achievement) {
+    throw new Error("ACHIEVEMENT_NOT_FOUND");
+  }
+  const deletedAchievement = await prisma.achievement.delete({
+    where: { id },
+  });
+  return deletedAchievement;
+};
+
+export const revokeAchievementFromUser = async (userId: string, achievementId: string) => {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+  });
+  if (!user) {
+    throw new Error("USER_NOT_FOUND");
+  }
+  const achievement = await prisma.achievement.findUnique({
+    where: { id: achievementId },
+  });
+  if (!achievement) {
+    throw new Error("ACHIEVEMENT_NOT_FOUND");
+  }
+  const userAchievement = await prisma.userAchievement.delete({
+    where: {
+      user_id_achievement_id: {
+        user_id: userId,
+        achievement_id: achievementId,
+      },
+    },
+  });
+  return userAchievement;
+};
+
+export const searchUsersForGamification = async (query: string) => {
+  const whereClause = query ? {
+    OR: [
+      { username: { contains: query, mode: "insensitive" } },
+      { email: { contains: query, mode: "insensitive" } },
+      { display_name: { contains: query, mode: "insensitive" } }
+    ]
+  } : {};
+
+  const users = await prisma.user.findMany({
+    where: whereClause as any,
+    take: 10,
+    orderBy: { xp: 'desc' },
+    select: {
+      id: true,
+      username: true,
+      email: true,
+      display_name: true,
+      avatar_url: true,
+      xp: true,
+      achievements: {
+        select: {
+          achievement_id: true,
+        }
+      }
     }
-    const achievement = await prisma.achievement.findUnique({
-        where: { id: achievementId },
-    });
-    if (!achievement) {
-        throw new Error("ACHIEVEMENT_NOT_FOUND");
-    }
-    const existingUserAchievement = await prisma.userAchievement.findUnique({
-        where: {
-            user_id_achievement_id: {
-                user_id: userId,
-                achievement_id: achievementId,
-            },
-        },
-    });
-    if (existingUserAchievement) {
-        throw new Error("USER_ALREADY_HAS_ACHIEVEMENT");
-    }
-    const userAchievement = await prisma.userAchievement.create({
-        data: {
-            user_id: userId,
-            achievement_id: achievementId,
-        },
-    });
-    return userAchievement;
+  });
+
+  return users.map((user: any) => ({
+    ...user,
+    achievements: user.achievements.map((ua: any) => ua.achievement_id)
+  }));
 };

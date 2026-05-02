@@ -299,4 +299,94 @@ export const adminGamificationController = {
       });
     }
   },
+
+  deleteAchievement: async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      if (!id) {
+        return res.status(400).json({
+          success: false,
+          message: "ID của thành tựu cần xóa không được để trống",
+        });
+      }
+      const deletedAchievement = await adminGamificationService.deleteAchievement(id);
+      return res.status(200).json({
+        success: true,
+        message: "Xóa thành tựu thành công",
+        data: deletedAchievement,
+      });
+    } catch (error: any) {
+      console.error("Lỗi xóa thành tựu:", error);
+      if (error.message === "ACHIEVEMENT_NOT_FOUND") {
+        return res.status(404).json({
+          success: false,
+          message: "Thành tựu không tồn tại",
+        });
+      }
+      return res.status(500).json({
+        success: false,
+        message: "Lỗi server khi xóa thành tựu",
+      });
+    }
+  },
+
+  revokeAchievementFromUser: async (req: Request, res: Response) => {
+    try {
+      const { userId, achievementId } = req.params;
+      if (!userId || !achievementId) {
+        return res.status(400).json({
+          success: false,
+          message: "Vui lòng cung cấp userId và achievementId cần thu hồi",
+        });
+      }
+      const userAchievement = await adminGamificationService.revokeAchievementFromUser(userId, achievementId);
+      return res.status(200).json({
+        success: true,
+        message: `Thu hồi thành tựu cho người dùng thành công`,
+        data: userAchievement,
+      });
+    } catch (error: any) {
+      console.error("Lỗi thu hồi thành tựu cho người dùng:", error);
+      if (error.message === "USER_NOT_FOUND") {
+        return res.status(404).json({
+          success: false,
+          message: "Người dùng không tồn tại",
+        });
+      }
+      if (error.message === "ACHIEVEMENT_NOT_FOUND") {
+        return res.status(404).json({
+          success: false,
+          message: "Thành tựu không tồn tại",
+        });
+      }
+      if (error.message === "USER_NOT_HAVE_ACHIEVEMENT") {
+        return res.status(409).json({
+          success: false,
+          message: "Người dùng chưa có thành tựu này",
+        });
+      }
+      return res.status(500).json({
+        success: false,
+        message: "Lỗi server khi thu hồi thành tựu cho người dùng",
+      });
+    }
+  },
+
+  searchUsers: async (req: Request, res: Response) => {
+    try {
+      const q = req.query.q as string || "";
+      const users = await adminGamificationService.searchUsersForGamification(q);
+      return res.status(200).json({
+        success: true,
+        message: "Tìm kiếm thành công",
+        data: users,
+      });
+    } catch (error: any) {
+      console.error("Lỗi tìm kiếm users:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Lỗi server khi tìm kiếm users",
+      });
+    }
+  },
 };
