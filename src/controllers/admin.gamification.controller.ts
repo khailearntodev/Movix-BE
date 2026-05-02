@@ -179,7 +179,6 @@ export const adminGamificationController = {
         message: "Bật/tắt thành tựu thành công",
         data: toggledAchievement,
       });
-
     } catch (error: any) {
       console.error("Lỗi bật/tắt thành tựu:", error);
       if (error.message === "ACHIEVEMENT_NOT_FOUND") {
@@ -191,6 +190,112 @@ export const adminGamificationController = {
       return res.status(500).json({
         success: false,
         message: "Lỗi server khi bật/tắt thành tựu",
+      });
+    }
+  },
+
+  getAchievementByUserId: async (req: Request, res: Response) => {
+    try {
+      const { userId } = req.params;
+      if (!userId) {
+        return res.status(400).json({
+          success: false,
+          message: "ID người dùng không được để trống",
+        });
+      }
+      const userAchievements =
+        await adminGamificationService.getUserAchievements(userId);
+      return res.status(200).json({
+        success: true,
+        message: "Lấy thành tựu của người dùng thành công",
+        data: userAchievements,
+      });
+    } catch (error: any) {
+      console.error("Lỗi lấy thành tựu của người dùng:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Lỗi server khi lấy thành tựu của người dùng",
+      });
+    }
+  },
+
+  grantXpToUser: async (req: Request, res: Response) => {
+    try {
+      const { xp } = req.body;
+      const { userId } = req.params;
+      if (!userId || xp === undefined) {
+        return res.status(400).json({
+          success: false,
+          message: "Vui lòng cung cấp userId và xp cần cấp",
+        });
+      }
+      const updatedUser = await adminGamificationService.grantXPToUser(
+        userId,
+        xp,
+      );
+      return res.status(200).json({
+        success: true,
+        message: `Cấp ${xp} XP cho người dùng thành công`,
+        data: updatedUser,
+      });
+    } catch (error: any) {
+      console.error("Lỗi cấp XP cho người dùng:", error);
+      if (error.message === "USER_NOT_FOUND") {
+        return res.status(404).json({
+          success: false,
+          message: "Người dùng không tồn tại",
+        });
+      }
+      return res.status(500).json({
+        success: false,
+        message: "Lỗi server khi cấp XP cho người dùng",
+      });
+    }
+  },
+
+  grantAchievementToUser: async (req: Request, res: Response) => {
+    try {
+      const { achievementId } = req.body;
+      const { userId } = req.params;
+      if (!userId || !achievementId) {
+        return res.status(400).json({
+          success: false,
+          message: "Vui lòng cung cấp userId và achievementId cần cấp",
+        });
+      }
+      const userAchievement =
+        await adminGamificationService.grantAchievementToUser(
+          userId,
+          achievementId,
+        );
+      return res.status(200).json({
+        success: true,
+        message: `Cấp thành tựu cho người dùng thành công`,
+        data: userAchievement,
+      });
+    } catch (error: any) {
+      console.error("Lỗi cấp thành tựu cho người dùng:", error);
+      if (error.message === "USER_NOT_FOUND") {
+        return res.status(404).json({
+          success: false,
+          message: "Người dùng không tồn tại",
+        });
+      }
+      if (error.message === "ACHIEVEMENT_NOT_FOUND") {
+        return res.status(404).json({
+          success: false,
+          message: "Thành tựu không tồn tại",
+        });
+      }
+      if (error.message === "USER_ALREADY_HAS_ACHIEVEMENT") {
+        return res.status(409).json({
+          success: false,
+          message: "Người dùng đã có thành tựu này",
+        });
+      }
+      return res.status(500).json({
+        success: false,
+        message: "Lỗi server khi cấp thành tựu cho người dùng",
       });
     }
   },

@@ -21,4 +21,13 @@ router.put("/update-achievement/:id", adminGamificationController.updateAchievem
 //put /api/admin/gamification/toggle-achievement/:id
 router.put("/toggle-achievement/:id", adminGamificationController.toggleAchievement);
 
+//Get /api/admin/gamification/get-achievement/:userId
+router.get("/get-achievement/:userId", adminGamificationController.getAchievementByUserId);
+
+//post /api/admin/gamification/grant-xp/:userId
+router.post("/grant-xp/:userId", adminGamificationController.grantXpToUser);
+
+//post /api/admin/gamification/grant-achievement/:userId
+router.post("/grant-achievement/:userId", adminGamificationController.grantAchievementToUser);
+
 export default router;
