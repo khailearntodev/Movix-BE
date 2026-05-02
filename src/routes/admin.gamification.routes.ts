@@ -30,4 +30,13 @@ router.post("/grant-xp/:userId", adminGamificationController.grantXpToUser);
 //post /api/admin/gamification/grant-achievement/:userId
 router.post("/grant-achievement/:userId", adminGamificationController.grantAchievementToUser);
 
+//delete /api/admin/gamification/delete-achievement/:id
+router.delete("/delete-achievement/:id", adminGamificationController.deleteAchievement);
+
+//put /api/admin/gamification/revoke-achievement/:userId/:achievementId
+router.put("/revoke-achievement/:userId/:achievementId", adminGamificationController.revokeAchievementFromUser);
+
+//get /api/admin/gamification/search-users
+router.get("/search-users", adminGamificationController.searchUsers);
+
 export default router;
