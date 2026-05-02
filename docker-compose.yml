@@ -26,6 +26,7 @@ services:
       - ./.env
     environment:
       - AI_SERVICE_URL=http://ai_engine:8000
+      - REDIS_URL=redis://redis:6379
     volumes:
       - .:/app
       - /app/node_modules
@@ -35,6 +36,22 @@ services:
         condition: service_healthy
       ai_engine:
         condition: service_started
+      redis:
+        condition: service_healthy
+    networks:
+      - movix_network
+
+  redis:
+    image: redis:alpine
+    container_name: movix-be-redis
+    ports:
+      - "6379:6379"
+    restart: always
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - movix_network
 
