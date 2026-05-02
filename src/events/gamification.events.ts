@@ -51,7 +51,7 @@ gamificationEmitter.on('USER_EARNED_XP', async (payload: XpEventPayload) => {
     const totalXp = Math.floor(baseXp * multiplier);
 
     if (totalXp > 0) {
-      await redis.hIncrBy(USER_XP_BUFFER_KEY, userId, totalXp);
+      await redis.hincrby(USER_XP_BUFFER_KEY, userId, totalXp);
     }
   } catch (error) {
     console.error('[GAMIFICATION EVENT ERROR]', error);
