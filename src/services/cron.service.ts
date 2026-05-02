@@ -1,8 +1,10 @@
 import { prisma } from "../lib/prisma";
+import redis from "../lib/redis";
 import { notificationService } from "../index";
 import { NotificationType } from "../types/notification";
 import { SubscriptionStatus } from "@prisma/client";
 import cron from "node-cron";
+import { USER_XP_BUFFER_KEY } from "../events/gamification.events";
 
 export const startCronJobs = () => {
   console.log(
@@ -19,6 +21,10 @@ export const startCronJobs = () => {
     console.log("⏳ [CRON] Bắt đầu quét các gói cước hết hạn...");
     const result = await checkExpiredSubscriptions();
     console.log(`✅ [CRON] Quét hoàn tất: ${result?.message}`);
+  });
+
+  cron.schedule("*/5 * * * *", async () => {
+    await flushGamificationXpBuffer();
   });
 };
 const runScheduleChecks = async () => {
@@ -130,6 +136,38 @@ const checkStartReminder = async () => {
   }
 };
 
+const flushGamificationXpBuffer = async () => {
+  try {
+    const buffer = await redis.hgetall(USER_XP_BUFFER_KEY);
+    const entries = Object.entries(buffer);
+
+    if (entries.length === 0) {
+      return;
+    }
+
+    for (const [userId, xpValue] of entries) {
+      const xp = Number(xpValue);
+
+      if (!Number.isFinite(xp) || xp <= 0) {
+        continue;
+      }
+
+      await prisma.user.update({
+        where: { id: userId },
+        data: {
+          xp: {
+            increment: xp,
+          },
+        },
+      });
+    }
+
+    await redis.del(USER_XP_BUFFER_KEY);
+  } catch (error) {
+    console.error("[GAMIFICATION CRON] Lỗi đồng bộ XP:", error);
+  }
+};
+
 export const checkExpiredSubscriptions = async () => {
   try {
     const now = new Date();
@@ -152,7 +190,7 @@ export const checkExpiredSubscriptions = async () => {
       message: `Đã quét và chuyển ${result.count} gói cước sang trạng thái EXPIRED.`,
     };
   } catch (error) {
-    console.error("❌ Lỗi nghiêm trọng khi quét gói cước hết hạn:", error);
+    console.error("[GAMIFICATION CRON] Lỗi nghiêm trọng khi quét gói cước hết hạn:", error);
 
     return {
       success: false,

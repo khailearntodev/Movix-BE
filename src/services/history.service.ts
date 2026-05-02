@@ -1,4 +1,5 @@
 import { prisma } from '../lib/prisma';
+import { gamificationEmitter } from '../events/gamification.events';
 
 export const upsertWatchHistory = async (
   userId: string,
@@ -27,6 +28,18 @@ export const upsertWatchHistory = async (
         data: { view_count: { increment: 1 } },
       });
     }
+  }
+
+  const oldProgress = existingHistory?.progress_seconds || 0;
+  const diffSeconds = progressSeconds - oldProgress;
+  
+  if (diffSeconds >= 60) {
+    const minutes = diffSeconds / 60;
+    gamificationEmitter.emit('USER_EARNED_XP', {
+      userId,
+      action: 'WATCH_MOVIE',
+      metadata: { minutes }
+    });
   }
 
   return prisma.watchHistory.upsert({
