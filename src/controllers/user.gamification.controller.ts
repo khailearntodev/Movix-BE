@@ -79,3 +79,42 @@ export const getMyGamificationProfile = async (req: Request, res: Response) => {
     return res.status(500).json({ success: false, message: 'Lỗi máy chủ nội bộ.' });
   }
 };
+
+export const getAllAvailableAchievements = async (req: Request, res: Response) => {
+  try {
+    const userId = req.userId;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'Chưa xác thực.' });
+    }
+
+    const allAchievements = await prisma.achievement.findMany({
+      where: { is_active: true },
+      orderBy: { condition_value: 'asc' }
+    });
+
+    const userAchievements = await prisma.userAchievement.findMany({
+      where: { user_id: userId },
+      select: { achievement_id: true, unlocked_at: true }
+    });
+
+    const unlockedMap = new Map();
+    userAchievements.forEach(ua => {
+      unlockedMap.set(ua.achievement_id, ua.unlocked_at);
+    });
+
+    const achievementsWithStatus = allAchievements.map(ach => ({
+      ...ach,
+      is_unlocked: unlockedMap.has(ach.id),
+      unlocked_at: unlockedMap.get(ach.id) || null
+    }));
+
+    return res.status(200).json({
+      success: true,
+      data: achievementsWithStatus
+    });
+
+  } catch (error) {
+    console.error("[GAMIFICATION] Lỗi khi lấy danh sách thành tựu:", error);
+    return res.status(500).json({ success: false, message: 'Lỗi máy chủ nội bộ.' });
+  }
+};
