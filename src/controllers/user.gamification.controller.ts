@@ -102,11 +102,42 @@ export const getAllAvailableAchievements = async (req: Request, res: Response) =
       unlockedMap.set(ua.achievement_id, ua.unlocked_at);
     });
 
-    const achievementsWithStatus = allAchievements.map(ach => ({
-      ...ach,
-      is_unlocked: unlockedMap.has(ach.id),
-      unlocked_at: unlockedMap.get(ach.id) || null
-    }));
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { xp: true, total_watch_time: true }
+    });
+
+    const totalComments = await prisma.comment.count({
+      where: { user_id: userId, is_deleted: false }
+    });
+
+    const achievementsWithStatus = allAchievements.map(ach => {
+      let currentProgress = 0;
+      if (user) {
+        switch (ach.condition_type) {
+          case "XP":
+            currentProgress = user.xp;
+            break;
+          case "TOTAL_WATCH_TIME":
+          case "WATCH_TIME":
+            currentProgress = user.total_watch_time;
+            break;
+          case "TOTAL_COMMENTS":
+            currentProgress = totalComments;
+            break;
+          default:
+            currentProgress = 0;
+            break;
+        }
+      }
+
+      return {
+        ...ach,
+        is_unlocked: unlockedMap.has(ach.id),
+        unlocked_at: unlockedMap.get(ach.id) || null,
+        current_progress: Math.min(currentProgress, ach.condition_value)
+      };
+    });
 
     return res.status(200).json({
       success: true,
