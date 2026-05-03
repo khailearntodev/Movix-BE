@@ -29,7 +29,10 @@ export const getAllReports = async (
     where,
     skip: (page - 1) * take,
     take: take,
-    orderBy: { created_at: 'desc' },
+    orderBy: [
+      { priority_level: 'desc' },
+      { created_at: 'desc' }
+    ],
     include: {
       reporter: {
         select: {

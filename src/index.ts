@@ -33,6 +33,7 @@ import adminTransactionRoutes from './routes/admin.transaction.routes';
 import reportRoutes from './routes/report.routes';
 import adminReportRoutes from './routes/admin.report.routes';
 import adminGamificationRoutes from './routes/admin.gamification.routes';
+import userGamificationRoutes from './routes/user.gamification.routes';
 
 const app = express();
 const server = createServer(app);
@@ -82,6 +83,7 @@ app.use('/api/downloads', downloadRoutes);
 app.use("/api/livekit", livekitRoutes);
 app.use("/api/admin/subscriptions", adminSubscriptionRoutes);
 app.use("/api/admin/gamification", adminGamificationRoutes);
+app.use("/api/gamification", userGamificationRoutes);
 
 app.use('/api/reports', reportRoutes);
 app.use('/api/admin/reports', adminReportRoutes);

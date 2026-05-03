@@ -37,9 +37,10 @@ export const getCommentsByMovie = async (movieId: string) => {
         },
       },
     },
-    orderBy: {
-      created_at: 'desc', 
-    },
+    orderBy: [
+      { is_pinned: 'desc' },
+      { created_at: 'desc' },
+    ],
   });
 };
 
