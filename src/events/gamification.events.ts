@@ -3,6 +3,7 @@ import redis from '../lib/redis';
 import { getUserSubscription } from '../services/subscription.service';
 
 export const USER_XP_BUFFER_KEY = 'gamification:user_xp_buffer';
+export const USER_WATCH_TIME_BUFFER_KEY = 'gamification:user_watch_time_buffer';
 
 export type GamificationAction = 'WATCH_MOVIE' | 'CREATE_COMMENT' | 'RATE_MOVIE';
 
@@ -52,6 +53,13 @@ gamificationEmitter.on('USER_EARNED_XP', async (payload: XpEventPayload) => {
 
     if (totalXp > 0) {
       await redis.hincrby(USER_XP_BUFFER_KEY, userId, totalXp);
+    }
+
+    if (action === 'WATCH_MOVIE' && metadata?.minutes) {
+      const watchTimeInt = Math.floor(metadata.minutes);
+      if (watchTimeInt > 0) {
+        await redis.hincrby(USER_WATCH_TIME_BUFFER_KEY, userId, watchTimeInt);
+      }
     }
   } catch (error) {
     console.error('[GAMIFICATION EVENT ERROR]', error);

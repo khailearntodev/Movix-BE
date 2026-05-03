@@ -4,7 +4,8 @@ import { notificationService } from "../index";
 import { NotificationType } from "../types/notification";
 import { SubscriptionStatus } from "@prisma/client";
 import cron from "node-cron";
-import { USER_XP_BUFFER_KEY } from "../events/gamification.events";
+import { USER_XP_BUFFER_KEY, USER_WATCH_TIME_BUFFER_KEY } from "../events/gamification.events";
+import { checkAndUnlockAchievements } from "./gamification.service";
 
 export const startCronJobs = () => {
   console.log(
@@ -138,33 +139,41 @@ const checkStartReminder = async () => {
 
 const flushGamificationXpBuffer = async () => {
   try {
-    const buffer = await redis.hgetall(USER_XP_BUFFER_KEY);
-    const entries = Object.entries(buffer);
+    const xpBuffer = await redis.hgetall(USER_XP_BUFFER_KEY);
+    const watchTimeBuffer = await redis.hgetall(USER_WATCH_TIME_BUFFER_KEY);
+    
+    const userIds = new Set([...Object.keys(xpBuffer), ...Object.keys(watchTimeBuffer)]);
 
-    if (entries.length === 0) {
+    if (userIds.size === 0) {
       return;
     }
 
-    for (const [userId, xpValue] of entries) {
-      const xp = Number(xpValue);
+    for (const userId of userIds) {
+      const xp = Number(xpBuffer[userId] || 0);
+      const watchTime = Number(watchTimeBuffer[userId] || 0);
 
-      if (!Number.isFinite(xp) || xp <= 0) {
-        continue;
+      const updateData: any = {};
+      
+      if (Number.isFinite(xp) && xp > 0) {
+        updateData.xp = { increment: xp };
+      }
+      if (Number.isFinite(watchTime) && watchTime > 0) {
+        updateData.total_watch_time = { increment: watchTime };
       }
 
-      await prisma.user.update({
-        where: { id: userId },
-        data: {
-          xp: {
-            increment: xp,
-          },
-        },
-      });
+      if (Object.keys(updateData).length > 0) {
+        await prisma.user.update({
+          where: { id: userId },
+          data: updateData,
+        });
+        await checkAndUnlockAchievements(userId);
+      }
     }
 
     await redis.del(USER_XP_BUFFER_KEY);
+    await redis.del(USER_WATCH_TIME_BUFFER_KEY);
   } catch (error) {
-    console.error("[GAMIFICATION CRON] Lỗi đồng bộ XP:", error);
+    console.error("[GAMIFICATION CRON] Lỗi đồng bộ XP/WatchTime:", error);
   }
 };
 
@@ -176,7 +185,7 @@ export const checkExpiredSubscriptions = async () => {
       where: {
         status: SubscriptionStatus.ACTIVE,
         end_date: {
-          lt: now, 
+          lt: now,
         },
       },
       data: {

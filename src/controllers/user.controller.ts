@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import * as userService from '../services/user.service';
 import * as subscriptionService from '../services/subscription.service';
+import { getSystemRanks } from '../services/admin.gamification.service';
 
 export const getMyProfile = async (req: Request, res: Response) => {
   try {
@@ -55,6 +56,16 @@ export const updateMyProfile = async (req: Request, res: Response) => {
       return res.status(401).json({ message: 'Không thể xác định người dùng.' });
     }
     
+    if (avatar_url && avatar_url.toLowerCase().includes('.gif')) {
+      const user = await userService.getUserById(userId);
+      const ranksConfig = await getSystemRanks();
+      if (user && ranksConfig && ranksConfig.EXPERT) {
+        if (user.xp < ranksConfig.EXPERT.min_xp) {
+          return res.status(403).json({ message: 'Bạn cần đạt hạng Phê Phim (Expert) để sử dụng ảnh đại diện động (GIF).' });
+        }
+      }
+    }
+
     const updateData = {
       display_name,
       gender,
