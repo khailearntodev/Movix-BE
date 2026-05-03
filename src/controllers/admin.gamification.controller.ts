@@ -1,7 +1,6 @@
 import { Request, Response } from "express";
 import * as adminGamificationService from "../services/admin.gamification.service";
-import { get } from "http";
-import { create } from "domain";
+import { checkAndUnlockAchievements } from "../services/gamification.service";
 
 export const adminGamificationController = {
   getSystemRanks: async (req: Request, res: Response) => {
@@ -386,6 +385,29 @@ export const adminGamificationController = {
       return res.status(500).json({
         success: false,
         message: "Lỗi server khi tìm kiếm users",
+      });
+    }
+  },
+
+  forceSyncUserAchievements: async (req: Request, res: Response) => {
+    try {
+      const { userId } = req.params;
+      if (!userId) {
+        return res.status(400).json({
+          success: false,
+          message: "Vui lòng cung cấp userId",
+        });
+      }
+      await checkAndUnlockAchievements(userId);
+      return res.status(200).json({
+        success: true,
+        message: "Đã quét và đồng bộ thành tựu cho user thành công",
+      });
+    } catch (error: any) {
+      console.error("Lỗi khi force sync thành tựu:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Lỗi server khi đồng bộ thành tựu",
       });
     }
   },

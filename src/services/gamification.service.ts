@@ -34,7 +34,7 @@ export const checkAndUnlockAchievements = async (userId: string) => {
         if (user.xp >= achievement.condition_value) {
           isUnlocked = true;
         }
-      } else if (achievement.condition_type === "WATCH_TIME") {
+      } else if (achievement.condition_type === "TOTAL_WATCH_TIME" || achievement.condition_type === "WATCH_TIME") {
         if (user.total_watch_time >= achievement.condition_value) {
           isUnlocked = true;
         }

@@ -25,6 +25,7 @@ export const startCronJobs = () => {
   });
 
   cron.schedule("*/5 * * * *", async () => {
+    console.log("⏳ [CRON] Bắt đầu Achivement...");
     await flushGamificationXpBuffer();
   });
 };
@@ -141,7 +142,7 @@ const flushGamificationXpBuffer = async () => {
   try {
     const xpBuffer = await redis.hgetall(USER_XP_BUFFER_KEY);
     const watchTimeBuffer = await redis.hgetall(USER_WATCH_TIME_BUFFER_KEY);
-    
+
     const userIds = new Set([...Object.keys(xpBuffer), ...Object.keys(watchTimeBuffer)]);
 
     if (userIds.size === 0) {
@@ -153,7 +154,7 @@ const flushGamificationXpBuffer = async () => {
       const watchTime = Number(watchTimeBuffer[userId] || 0);
 
       const updateData: any = {};
-      
+
       if (Number.isFinite(xp) && xp > 0) {
         updateData.xp = { increment: xp };
       }
