@@ -13,8 +13,8 @@ export const getProfile = async (userId: string) => {
       avatar_url: true,
       preferences: true,
       status: true,
-      xp: true,    
-      total_watch_time: true, 
+      xp: true,
+      total_watch_time: true,
       is_flagged: true,
       role: {
         select: {
@@ -30,17 +30,24 @@ export const getProfile = async (userId: string) => {
 
   const preferences = (user.preferences as Prisma.JsonObject) || {};
   const gender = preferences?.gender || null;
+  const displayNameColor = preferences?.display_name_color || null;
 
   return {
     ...user,
     role: user.role?.name,
     gender: gender,
+    display_name_color: displayNameColor,
   };
 };
 
 export const updateProfile = async (
   userId: string,
-  data: { display_name?: string; gender?: string; avatar_url?: string },
+  data: {
+    display_name?: string;
+    gender?: string;
+    avatar_url?: string;
+    display_name_color?: string;
+  },
 ) => {
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -52,16 +59,19 @@ export const updateProfile = async (
   }
 
   const currentPreferences = (user.preferences as Prisma.JsonObject) || {};
-  
+
   const dataToUpdate: Prisma.UserUpdateInput = {
     display_name: data.display_name || user.display_name,
     avatar_url: data.avatar_url || user.avatar_url,
   };
 
-  if (data.gender) {
+  if (data.gender || data.display_name_color) {
     dataToUpdate.preferences = {
       ...currentPreferences,
-      gender: data.gender,
+      ...(data.gender ? { gender: data.gender } : {}),
+      ...(data.display_name_color
+        ? { display_name_color: data.display_name_color }
+        : {}),
     };
   }
 
@@ -83,10 +93,12 @@ export const updateProfile = async (
 
   const updatedPrefs = updatedUser.preferences as Prisma.JsonObject;
   const updatedGender = updatedPrefs?.gender || null;
+  const updatedDisplayNameColor = updatedPrefs?.display_name_color || null;
 
   return {
     ...updatedUser,
     gender: updatedGender,
+    display_name_color: updatedDisplayNameColor,
   };
 };
 export const changePassword = async (

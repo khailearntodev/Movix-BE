@@ -1,9 +1,54 @@
 import { prisma } from '../lib/prisma';
 import { notificationService } from '../index';
 import { gamificationEmitter } from '../events/gamification.events';
+import { getSystemRanks } from './admin.gamification.service';
+
+const enrichUsersWithBadge = async (
+  users: Array<{
+    id: string;
+    display_name: string;
+    avatar_url: string | null;
+    xp: number;
+    preferences: any;
+  }>,
+) => {
+  const ranksConfig = await getSystemRanks();
+  const ranksArray = ranksConfig
+    ? Object.entries(ranksConfig)
+        .map(([key, value]: [string, any]) => ({ key, ...value }))
+        .filter((rank) => typeof rank.min_xp === 'number')
+        .sort((a, b) => a.min_xp - b.min_xp)
+    : [];
+
+  const resolveUserRank = (xp: number) => {
+    if (!ranksArray.length) {
+      return 'NEWBIE';
+    }
+
+    let currentRank = ranksArray[0].key;
+    for (const rank of ranksArray) {
+      if (xp >= rank.min_xp) {
+        currentRank = rank.key;
+      }
+    }
+
+    return currentRank;
+  };
+
+  return users.map((user) => {
+    const prefs = (user.preferences as Record<string, unknown>) || {};
+    return {
+      id: user.id,
+      display_name: user.display_name,
+      avatar_url: user.avatar_url,
+      display_name_color: (prefs.display_name_color as string) || null,
+      user_badge: resolveUserRank(user.xp),
+    };
+  });
+};
 
 export const getCommentsByMovie = async (movieId: string) => {
-  return prisma.comment.findMany({
+  const comments = await prisma.comment.findMany({
     where: {
       movie_id: movieId,
       parent_comment_id: null, 
@@ -16,6 +61,8 @@ export const getCommentsByMovie = async (movieId: string) => {
           id: true,
           display_name: true,
           avatar_url: true,
+          xp: true,
+          preferences: true,
         },
       },
       replies: {
@@ -29,6 +76,8 @@ export const getCommentsByMovie = async (movieId: string) => {
               id: true,
               display_name: true,
               avatar_url: true,
+              xp: true,
+              preferences: true,
             },
           },
         },
@@ -42,6 +91,33 @@ export const getCommentsByMovie = async (movieId: string) => {
       { created_at: 'desc' },
     ],
   });
+
+  const usersById = new Map<string, {
+    id: string;
+    display_name: string;
+    avatar_url: string | null;
+    xp: number;
+    preferences: any;
+  }>();
+
+  for (const comment of comments) {
+    usersById.set(comment.user.id, comment.user);
+    for (const reply of comment.replies) {
+      usersById.set(reply.user.id, reply.user);
+    }
+  }
+
+  const enrichedUsers = await enrichUsersWithBadge(Array.from(usersById.values()));
+  const enrichedUsersMap = new Map(enrichedUsers.map((u) => [u.id, u]));
+
+  return comments.map((comment) => ({
+    ...comment,
+    user: enrichedUsersMap.get(comment.user.id) || null,
+    replies: comment.replies.map((reply) => ({
+      ...reply,
+      user: enrichedUsersMap.get(reply.user.id) || null,
+    })),
+  }));
 };
 
 export const createComment = async (
@@ -53,6 +129,18 @@ export const createComment = async (
   toxicityScore?: number,
   isHidden?: boolean
 ) => {
+  let isPinned = false;
+    try {
+      const user = await prisma.user.findUnique({ where: { id: userId }, select: { xp: true } });
+      if (user) {
+        const ranksConfig = await getSystemRanks();
+        if (ranksConfig && ranksConfig.LEGEND && user.xp >= ranksConfig.LEGEND.min_xp) {
+          isPinned = true;
+        }
+      }
+    } catch (error) {
+      console.error("Error setting pinned status:", error);
+    }
   const newComment = await prisma.comment.create({
     data: {
       user_id: userId,
@@ -62,6 +150,7 @@ export const createComment = async (
       is_spoiler: isSpoiler || false,
       toxicity_score: toxicityScore || 0, 
       is_hidden: isHidden || false,
+      is_pinned: isPinned || false,
     },
   });
 
@@ -93,7 +182,7 @@ export const createComment = async (
     console.error("Lỗi khi gửi cảnh báo user bị gắn cờ:", error);
   }
 
-  return prisma.comment.findUnique({
+  const createdComment = await prisma.comment.findUnique({
     where: { id: newComment.id },
     include: {
       user: {
@@ -101,10 +190,23 @@ export const createComment = async (
           id: true,
           display_name: true,
           avatar_url: true,
+          xp: true,
+          preferences: true,
         },
       },
     },
   });
+
+  if (!createdComment || !createdComment.user) {
+    return createdComment;
+  }
+
+  const [enrichedUser] = await enrichUsersWithBadge([createdComment.user]);
+
+  return {
+    ...createdComment,
+    user: enrichedUser,
+  };
 };
 
 
