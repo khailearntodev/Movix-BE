@@ -50,18 +50,27 @@ export const getMySubscription = async (req: Request, res: Response) => {
 export const updateMyProfile = async (req: Request, res: Response) => {
   try {
     const userId = req.userId;
-    const { display_name, gender, avatar_url } = req.body;
+    const { display_name, gender, avatar_url, display_name_color } = req.body;
 
     if (!userId) {
       return res.status(401).json({ message: 'Không thể xác định người dùng.' });
     }
     
+    const user = await userService.getUserById(userId);
+    const ranksConfig = await getSystemRanks();
+
     if (avatar_url && avatar_url.toLowerCase().includes('.gif')) {
-      const user = await userService.getUserById(userId);
-      const ranksConfig = await getSystemRanks();
       if (user && ranksConfig && ranksConfig.EXPERT) {
         if (user.xp < ranksConfig.EXPERT.min_xp) {
           return res.status(403).json({ message: 'Bạn cần đạt hạng Phê Phim (Expert) để sử dụng ảnh đại diện động (GIF).' });
+        }
+      }
+    }
+
+    if (display_name_color && display_name_color.trim().length > 0) {
+      if (user && ranksConfig && ranksConfig.MEMBER) {
+        if (user.xp < ranksConfig.MEMBER.min_xp) {
+          return res.status(403).json({ message: 'Bạn cần đạt hạng Cinephile (Member) để đổi màu tên hiển thị.' });
         }
       }
     }
@@ -70,6 +79,7 @@ export const updateMyProfile = async (req: Request, res: Response) => {
       display_name,
       gender,
       avatar_url,
+      display_name_color,
     };
 
     const updatedUser = await userService.updateProfile(userId, updateData);
