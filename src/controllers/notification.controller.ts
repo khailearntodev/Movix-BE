@@ -132,47 +132,44 @@ export class NotificationController {
 
     async sendCustomNotification(req: Request, res: Response) {
         try {
-            const { targetUserId, targetType, title, message, url, channel, scheduledAt } = req.body;
+            const { targetUserId, targetType, title, message, url, channels, scheduledAt } = req.body;
+            
+            const channelList = Array.isArray(channels) ? channels : [channels || 'IN_APP'];
 
-            if (targetType === 'all_users') {
-                await this.notificationService.broadcastSystemNotification(title, message, { 
-                    actionUrl: url,
-                    channel: channel,
-                    scheduledAt: scheduledAt
-                });
-                return res.json({ success: true, message: 'Đã gửi thông báo toàn hệ thống.' });
-            }
-
-            if (targetType === 'all_admins') {
-                const adminIds = await this.notificationService.getAllAdminIds();
-                if (adminIds.length > 0) {
-                    await this.notificationService.createBulkNotifications(adminIds, {
+            for (const channel of channelList) {
+                if (targetType === 'all_users') {
+                    await this.notificationService.broadcastSystemNotification(title, message, { 
+                        actionUrl: url,
+                        channel: channel,
+                        scheduledAt: scheduledAt
+                    });
+                } else if (targetType === 'all_admins') {
+                    const adminIds = await this.notificationService.getAllAdminIds();
+                    if (adminIds.length > 0) {
+                        await this.notificationService.createBulkNotifications(adminIds, {
+                            type: NotificationType.SYSTEM,
+                            title,
+                            message,
+                            actionUrl: url,
+                            channel: channel,
+                            scheduledAt: scheduledAt,
+                            data: { targetGroup: 'admins' }
+                        });
+                    }
+                } else if (targetType === 'specific' && targetUserId) {
+                    await this.notificationService.createNotification({
+                        userId: targetUserId,
                         type: NotificationType.SYSTEM,
                         title,
                         message,
                         actionUrl: url,
                         channel: channel,
-                        scheduledAt: scheduledAt,
-                        data: { targetGroup: 'admins' }
+                        scheduledAt: scheduledAt
                     });
                 }
-                return res.json({ success: true, message: `Đã gửi cho ${adminIds.length} quản trị viên.` });
             }
 
-            if (targetType === 'specific' && targetUserId) {
-                await this.notificationService.createNotification({
-                    userId: targetUserId,
-                    type: "SYSTEM" as any,
-                    title,
-                    message,
-                    actionUrl: url,
-                    channel: channel,
-                    scheduledAt: scheduledAt
-                });
-                return res.json({ success: true, message: 'Đã gửi thông báo cá nhân.' });
-            }
-
-            res.status(400).json({ message: 'Thiếu thông tin người nhận.' });
+            return res.json({ success: true, message: 'Thông báo đang được xử lý gửi đi.' });
         } catch (error) {
             console.error('Send Custom Notification:', error);
             res.status(500).json({ message: 'Lỗi khi gửi thông báo' });
