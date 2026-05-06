@@ -22,10 +22,13 @@ export interface CreateNotificationDto {
 export interface NotificationResponse {
   id: string;
   type: NotificationType;
+  channel?: NotificationChannel;
   title: string;
   message: string;
   data?: any;
   actionUrl?: string;
   isRead: boolean;
+  isSent?: boolean;
+  scheduledAt?: Date;
   createdAt: Date;
 }

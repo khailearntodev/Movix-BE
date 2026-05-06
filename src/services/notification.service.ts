@@ -267,11 +267,14 @@ export class NotificationService {
     return {
       id: notification.id,
       type: notification.type,
+      channel: notification.channel,
       title: notification.title,
       message: notification.message,
       data: notification.data,
       actionUrl: notification.action_url,
       isRead: notification.is_read,
+      isSent: notification.is_sent,
+      scheduledAt: notification.scheduled_at,
       createdAt: notification.created_at
     };
   }
