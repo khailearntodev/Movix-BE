@@ -39,4 +39,7 @@ router.put("/revoke-achievement/:userId/:achievementId", adminGamificationContro
 //get /api/admin/gamification/search-users
 router.get("/search-users", adminGamificationController.searchUsers);
 
+//post /api/admin/gamification/force-sync/:userId
+router.post("/force-sync/:userId", adminGamificationController.forceSyncUserAchievements);
+
 export default router;

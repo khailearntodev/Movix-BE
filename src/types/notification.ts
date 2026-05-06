@@ -4,7 +4,8 @@ export enum NotificationType {
   NEW_MOVIE = 'NEW_MOVIE',
   COMMENT_REPLY = 'COMMENT_REPLY',
   WATCH_PARTY_INVITE = 'WATCH_PARTY_INVITE',
-  SYSTEM = 'SYSTEM'
+  SYSTEM = 'SYSTEM',
+  ACHIEVEMENT_UNLOCKED = 'ACHIEVEMENT_UNLOCKED',
 }
 
 export interface CreateNotificationDto {

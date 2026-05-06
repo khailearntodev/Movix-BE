@@ -11,7 +11,7 @@ export const redisConnection = new Redis(redisUrl, {
 
 const redis = new Redis(redisUrl);
 
-redis.on('error', (err) => {
+redis.on('error', (err: any) => {
     console.error('Lỗi kết nối Redis:', err.message);
 });
 
