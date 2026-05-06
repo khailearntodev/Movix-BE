@@ -1,9 +1,12 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, NotificationChannel } from '@prisma/client';
 import { CreateNotificationDto, NotificationResponse, NotificationType } from '../types/notification';
 import { PushNotificationService } from './push-notification.service';
 import { ExpoPushService } from './expo-push.service';
+import { sendNotificationEmail } from './email.service';
+import { notificationQueue } from './notification.worker.service';
 
 export class NotificationService {
+
   private prisma: PrismaClient;
   private webSocketService: any;
   private pushNotificationService = new PushNotificationService();
@@ -38,92 +41,143 @@ export class NotificationService {
         title: dto.title,
         message: dto.message,
         data: dto.data || {},
-        action_url: dto.actionUrl
+        action_url: dto.actionUrl,
+        channel: dto.channel || NotificationChannel.IN_APP,
+        scheduled_at: dto.scheduledAt || null,
+        is_sent: false
       }
     });
 
-    if (this.webSocketService && dto.userId) {
-      await this.webSocketService.sendNotificationToUser(dto.userId, notification);
+    let delay = 0;
+    if (dto.scheduledAt) {
+      const targetTime = new Date(dto.scheduledAt).getTime();
+      const now = Date.now();
+      delay = targetTime > now ? targetTime - now : 0;
     }
 
-    if (dto.userId) {
-      await this.pushNotificationService.sendNotification(dto.userId, {
-        title: dto.title,
-        message: dto.message,
-        url: dto.actionUrl
-      });
-
-      await this.expoPushService.sendNotification(dto.userId, {
-        title: dto.title,
-        message: dto.message,
-        data: { url: dto.actionUrl }
-      });
-    }
+    await notificationQueue.add(
+      'process-notification',
+      { notificationId: notification.id },
+      { delay }
+    );
 
     return this.formatResponse(notification);
   }
 
+  async executeScheduledJob(notificationId: string): Promise<void> {
+    const notif = await this.prisma.notification.findUnique({
+      where: { id: notificationId },
+      include: { user: true }
+    });
+
+    if (!notif || notif.is_sent) return;
+
+    try {
+      if ((notif.channel === NotificationChannel.IN_APP || notif.channel === NotificationChannel.PUSH) && this.webSocketService && notif.user_id) {
+        await this.webSocketService.sendNotificationToUser(notif.user_id, notif);
+      }
+
+      if (notif.channel === NotificationChannel.PUSH && notif.user_id) {
+        await this.pushNotificationService.sendNotification(notif.user_id, {
+          title: notif.title,
+          message: notif.message,
+          url: notif.action_url || undefined
+        });
+
+        await this.expoPushService.sendNotification(notif.user_id, {
+          title: notif.title,
+          message: notif.message,
+          data: { url: notif.action_url }
+        });
+      }
+
+      if (notif.channel === NotificationChannel.EMAIL && notif.user?.email) {
+        const htmlContent = `
+          <div style="font-family: sans-serif; padding: 20px;">
+            <h2>${notif.title}</h2>
+            <p>${notif.message}</p>
+            ${notif.action_url ? `<a href="${process.env.FRONTEND_URL || ''}${notif.action_url}" style="color: #E50914;">Xem chi tiết tại Movix</a>` : ''}
+          </div>
+        `;
+        await sendNotificationEmail(notif.user.email, notif.title, htmlContent);
+      }
+
+      await this.prisma.notification.update({
+        where: { id: notificationId },
+        data: { is_sent: true, sent_at: new Date() }
+      });
+
+    } catch (error) {
+      console.error(`[NotificationService] Lỗi khi gửi thông báo ${notificationId}:`, error);
+      throw error;
+    }
+  }
+
   async createBulkNotifications(userIds: string[], dto: Omit<CreateNotificationDto, 'userId'>): Promise<void> {
+    const channel = dto.channel || NotificationChannel.IN_APP;
+    const scheduledAt = dto.scheduledAt || null;
+    const startTime = new Date();
+
     const notifications = userIds.map(userId => ({
       user_id: userId,
       type: dto.type,
       title: dto.title,
       message: dto.message,
       data: dto.data || {},
-      action_url: dto.actionUrl
+      action_url: dto.actionUrl,
+      channel: channel,
+      scheduled_at: scheduledAt,
+      is_sent: false
     }));
 
     await this.prisma.notification.createMany({
       data: notifications
     });
 
-    if (this.webSocketService) {
-      const sampleNotification = notifications[0];
-      await this.webSocketService.sendNotificationToUsers(userIds, {
-        id: 'bulk',
-        ...sampleNotification,
-        created_at: new Date()
-      });
+    let delay = 0;
+    if (scheduledAt) {
+      const targetTime = new Date(scheduledAt).getTime();
+      const now = Date.now();
+      delay = targetTime > now ? targetTime - now : 0;
     }
 
-    const pushPromises = userIds.flatMap(userId => [
-      this.pushNotificationService.sendNotification(userId, {
+    const createdNotifications = await this.prisma.notification.findMany({
+      where: {
+        user_id: { in: userIds },
+        created_at: { gte: startTime },
         title: dto.title,
-        message: dto.message,
-        url: dto.actionUrl,
-      }),
-      this.expoPushService.sendNotification(userId, {
-        title: dto.title,
-        message: dto.message,
-        data: { url: dto.actionUrl }
-      })
-    ]);
+        is_sent: false
+      },
+      select: { id: true }
+    });
 
-    const results = await Promise.allSettled(pushPromises);
-    const failed = results.filter(r => r.status === 'rejected');
-    if (failed.length > 0) {
-        console.warn(`⚠️ Có ${failed.length}/${pushPromises.length} lần gửi thông báo đẩy bị lỗi (bao gồm web push và Expo push, có thể do user chưa subscribe).`);
+    if (createdNotifications.length > 0) {
+      const jobs = createdNotifications.map(n => ({
+        name: 'process-notification',
+        data: { notificationId: n.id },
+        opts: { delay }
+      }));
+      await notificationQueue.addBulk(jobs);
     }
   }
 
-async broadcastSystemNotification(title: string, message: string, data?: any): Promise<void> {
+  async broadcastSystemNotification(title: string, message: string, data?: any): Promise<void> {
     const users = await this.prisma.user.findMany({
-        where: { is_deleted: false, status: 'active' },
-        select: { id: true }
+      where: { is_deleted: false, status: 'active' },
+      select: { id: true }
     });
     const userIds = users.map(u => u.id);
     if (userIds.length === 0) return;
 
-    const actionUrl = data?.actionUrl;
-    
     await this.createBulkNotifications(userIds, {
-      type: 'SYSTEM' as any,
+      type: NotificationType.SYSTEM,
       title,
       message,
       data: data || {},
-      actionUrl
+      actionUrl: data?.actionUrl,
+      channel: data?.channel,
+      scheduledAt: data?.scheduledAt
     });
-
   }
 
   async getUserNotifications(userId: string, page: number = 1, limit: number = 20) {
@@ -133,8 +187,8 @@ async broadcastSystemNotification(title: string, message: string, data?: any): P
         { is_deleted: false },
         {
           OR: [
-            { user_id: userId },    
-            { user_id: null, type: 'SYSTEM' as any } 
+            { user_id: userId },
+            { user_id: null, type: 'SYSTEM' as any }
           ]
         }
       ]
@@ -243,19 +297,19 @@ async broadcastSystemNotification(title: string, message: string, data?: any): P
 
   async getSystemNotificationHistory(page = 1, limit = 10) {
     const skip = (page - 1) * limit;
-    
+
     const whereCondition = {
-      type: 'SYSTEM' as any, 
+      type: 'SYSTEM' as any,
       is_deleted: false,
       OR: [
-        { user_id: null }, 
+        { user_id: null },
         {
-            user: {
-                OR: [
-                    { role: { name: 'Admin' } }, 
-                    { is_flagged: true }       
-                ]
-            }
+          user: {
+            OR: [
+              { role: { name: 'Admin' } },
+              { is_flagged: true }
+            ]
+          }
         }
       ]
     };
@@ -266,16 +320,16 @@ async broadcastSystemNotification(title: string, message: string, data?: any): P
         skip,
         take: limit,
         include: {
-            user: {
-                select: { 
-                    id: true, 
-                    username: true, 
-                    display_name: true, 
-                    avatar_url: true,
-                    role: { select: { name: true } }, 
-                    is_flagged: true                  
-                }
+          user: {
+            select: {
+              id: true,
+              username: true,
+              display_name: true,
+              avatar_url: true,
+              role: { select: { name: true } },
+              is_flagged: true
             }
+          }
         }
       }),
       this.prisma.notification.count({ where: whereCondition })
@@ -283,14 +337,14 @@ async broadcastSystemNotification(title: string, message: string, data?: any): P
 
     return {
       data: history.map(item => ({
-          ...this.formatResponse(item),
-          recipient: item.user ? {
-              username: item.user.username,
-              displayName: item.user.display_name,
-              avatarUrl: item.user.avatar_url,
-              role: item.user.role?.name,
-              isFlagged: item.user.is_flagged
-          } : null
+        ...this.formatResponse(item),
+        recipient: item.user ? {
+          username: item.user.username,
+          displayName: item.user.display_name,
+          avatarUrl: item.user.avatar_url,
+          role: item.user.role?.name,
+          isFlagged: item.user.is_flagged
+        } : null
       })),
       pagination: {
         page,
