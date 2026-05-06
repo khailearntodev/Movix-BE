@@ -34,6 +34,10 @@ import reportRoutes from './routes/report.routes';
 import adminReportRoutes from './routes/admin.report.routes';
 import adminGamificationRoutes from './routes/admin.gamification.routes';
 import userGamificationRoutes from './routes/user.gamification.routes';
+import { notificationWorker } from './services/notification.worker.service';
+import {
+    notificationQueue
+} from './services/notification.worker.service';
 
 const app = express();
 const server = createServer(app);

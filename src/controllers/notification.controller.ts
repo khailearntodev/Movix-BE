@@ -4,6 +4,8 @@ import { PushNotificationService } from '../services/push-notification.service';
 import { ExpoPushService } from '../services/expo-push.service';
 import { getNotificationService } from '../utils/notify/notification.helper';
 
+import { NotificationType } from '../types/notification';
+
 export class NotificationController {
 
     private pushNotificationService = new PushNotificationService();
@@ -98,7 +100,7 @@ export class NotificationController {
         try {
             const userId = req.userId!;
             const { expoToken } = req.body;
-            
+
             if (!expoToken) {
                 return res.status(400).json({ message: 'Push token is required' });
             }
@@ -115,7 +117,7 @@ export class NotificationController {
         try {
             const userId = req.userId!;
             const { token } = req.body;
-            
+
             if (!token) {
                 return res.status(400).json({ message: 'Token is required' });
             }
@@ -130,34 +132,42 @@ export class NotificationController {
 
     async sendCustomNotification(req: Request, res: Response) {
         try {
-            const { targetUserId, targetType, title, message, url } = req.body;
+            const { targetUserId, targetType, title, message, url, channel, scheduledAt } = req.body;
 
             if (targetType === 'all_users') {
-                await this.notificationService.broadcastSystemNotification(title, message, { actionUrl: url });
+                await this.notificationService.broadcastSystemNotification(title, message, { 
+                    actionUrl: url,
+                    channel: channel,
+                    scheduledAt: scheduledAt
+                });
                 return res.json({ success: true, message: 'Đã gửi thông báo toàn hệ thống.' });
-            } 
+            }
 
             if (targetType === 'all_admins') {
                 const adminIds = await this.notificationService.getAllAdminIds();
                 if (adminIds.length > 0) {
                     await this.notificationService.createBulkNotifications(adminIds, {
-                        type: "SYSTEM" as any,
+                        type: NotificationType.SYSTEM,
                         title,
                         message,
                         actionUrl: url,
+                        channel: channel,
+                        scheduledAt: scheduledAt,
                         data: { targetGroup: 'admins' }
                     });
                 }
                 return res.json({ success: true, message: `Đã gửi cho ${adminIds.length} quản trị viên.` });
             }
-            
+
             if (targetType === 'specific' && targetUserId) {
                 await this.notificationService.createNotification({
                     userId: targetUserId,
                     type: "SYSTEM" as any,
                     title,
                     message,
-                    actionUrl: url
+                    actionUrl: url,
+                    channel: channel,
+                    scheduledAt: scheduledAt
                 });
                 return res.json({ success: true, message: 'Đã gửi thông báo cá nhân.' });
             }
@@ -173,7 +183,7 @@ export class NotificationController {
         try {
             const { page = 1, limit = 10 } = req.query;
             const result = await this.notificationService.getSystemNotificationHistory(
-                Number(page), 
+                Number(page),
                 Number(limit)
             );
             res.json(result);
