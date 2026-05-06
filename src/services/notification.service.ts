@@ -3,7 +3,7 @@ import { CreateNotificationDto, NotificationResponse, NotificationType } from '.
 import { PushNotificationService } from './push-notification.service';
 import { ExpoPushService } from './expo-push.service';
 import { sendNotificationEmail } from './email.service';
-import { notificationQueue } from './notification.worker.service';
+import { notificationQueue } from '../types/notification.queue';
 
 export class NotificationService {
 
@@ -92,12 +92,68 @@ export class NotificationService {
       }
 
       if (notif.channel === NotificationChannel.EMAIL && notif.user?.email) {
+        const appName = process.env.APP_NAME || 'Movix';
+        const frontendUrl = (process.env.FRONTEND_URL || '').replace(/\/$/, '');
+        let actionLink = frontendUrl;
+
+        if (notif.action_url) {
+          if (notif.action_url.startsWith('http')) {
+            actionLink = notif.action_url;
+          } else {
+            const path = notif.action_url.startsWith('/') ? notif.action_url : `/${notif.action_url}`;
+            actionLink = `${frontendUrl}${path}`;
+          }
+        }
+
         const htmlContent = `
-          <div style="font-family: sans-serif; padding: 20px;">
-            <h2>${notif.title}</h2>
-            <p>${notif.message}</p>
-            ${notif.action_url ? `<a href="${process.env.FRONTEND_URL || ''}${notif.action_url}" style="color: #E50914;">Xem chi tiết tại Movix</a>` : ''}
-          </div>
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>${notif.title}</title>
+            <style>
+              body { margin: 0; padding: 0; background-color: #141414; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+              .container { width: 100%; max-width: 600px; margin: 0 auto; background-color: #000000; border-radius: 8px; overflow: hidden; }
+              .header { padding: 30px; text-align: center; background-color: #000000; }
+              .logo { color: #E50914; font-size: 32px; font-weight: bold; text-transform: uppercase; letter-spacing: 2px; text-decoration: none; }
+              .content { padding: 40px 50px; background-color: #141414; color: #ffffff; }
+              .title { font-size: 24px; font-weight: bold; margin-bottom: 20px; color: #ffffff; }
+              .message { font-size: 16px; line-height: 1.6; color: #cccccc; margin-bottom: 30px; }
+              .button-container { text-align: center; margin-top: 20px; }
+              .button { background-color: #E50914; color: #ffffff !important; padding: 12px 30px; border-radius: 4px; text-decoration: none; font-weight: bold; display: inline-block; }
+              .footer { padding: 30px; text-align: center; color: #666666; font-size: 12px; background-color: #000000; border-top: 1px solid #333; }
+              .footer a { color: #888888; text-decoration: underline; }
+            </style>
+          </head>
+          <body>
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+              <tr>
+                <td align="center" style="padding: 20px 0;">
+                  <div class="container">
+                    <div class="header">
+                      <a href="${frontendUrl}" class="logo">${appName}</a>
+                    </div>
+                    <div class="content">
+                      <div class="title">${notif.title}</div>
+                      <div class="message">${notif.message}</div>
+                      ${notif.action_url ? `
+                      <div class="button-container">
+                        <a href="${actionLink}" class="button">Xem ngay tại Movix</a>
+                      </div>
+                      ` : ''}
+                    </div>
+                    <div class="footer">
+                      <p>Bạn nhận được email này vì bạn là thành viên của ${appName}.</p>
+                      <p>&copy; ${new Date().getFullYear()} ${appName}. All rights reserved.</p>
+                      <p><a href="${frontendUrl}/profile">Quản lý cài đặt thông báo</a></p>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            </table>
+          </body>
+          </html>
         `;
         await sendNotificationEmail(notif.user.email, notif.title, htmlContent);
       }
@@ -130,10 +186,6 @@ export class NotificationService {
       is_sent: false
     }));
 
-    await this.prisma.notification.createMany({
-      data: notifications
-    });
-
     let delay = 0;
     if (scheduledAt) {
       const targetTime = new Date(scheduledAt).getTime();
@@ -141,18 +193,13 @@ export class NotificationService {
       delay = targetTime > now ? targetTime - now : 0;
     }
 
-    const createdNotifications = await this.prisma.notification.findMany({
-      where: {
-        user_id: { in: userIds },
-        created_at: { gte: startTime },
-        title: dto.title,
-        is_sent: false
-      },
+    const createdNotifications = await (this.prisma.notification as any).createManyAndReturn({
+      data: notifications,
       select: { id: true }
     });
 
     if (createdNotifications.length > 0) {
-      const jobs = createdNotifications.map(n => ({
+      const jobs = createdNotifications.map((n: any) => ({
         name: 'process-notification',
         data: { notificationId: n.id },
         opts: { delay }
