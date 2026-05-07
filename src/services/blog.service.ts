@@ -38,7 +38,7 @@ export const createBlogPost = async (data: {
         select: {
           id: true,
           title: true,
-          poster_path: true,
+          poster_url: true,
         },
       },
     },
@@ -61,7 +61,7 @@ export const getBlogPostById = async (id: string) => {
         select: {
           id: true,
           title: true,
-          poster_path: true,
+          poster_url: true,
           slug: true,
         },
       },
@@ -100,7 +100,7 @@ export const getBlogPostBySlug = async (slug: string) => {
         select: {
           id: true,
           title: true,
-          poster_path: true,
+          poster_url: true,
           slug: true,
         },
       },
@@ -175,7 +175,7 @@ export const getAllBlogPosts = async (
           select: {
             id: true,
             title: true,
-            poster_path: true,
+            poster_url: true,
             slug: true,
           },
         },
@@ -225,7 +225,7 @@ export const getUserBlogPosts = async (
           select: {
             id: true,
             title: true,
-            poster_path: true,
+            poster_url: true,
             slug: true,
           },
         },

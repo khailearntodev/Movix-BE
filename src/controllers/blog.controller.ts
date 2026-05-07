@@ -8,12 +8,26 @@ export const blogController = {
   createPost: async (req: Request, res: Response) => {
     try {
       const userId = getUserId(req);
-      const { title, content, excerpt, thumbnail, images, isSpoiler, movieId, status } = req.body;
+      const { title, content, excerpt, isSpoiler, movieId, status } = req.body;
 
       if (!title || !content) {
         return res.status(400).json({ message: 'Tiêu đề và nội dung là bắt buộc' });
       }
       let slug = generateSlug(title);
+
+      const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
+      let thumbnail = req.body.thumbnail; 
+      let images = req.body.images ? (Array.isArray(req.body.images) ? req.body.images : [req.body.images]) : [];
+
+      if (files) {
+        if (files['thumbnail'] && files['thumbnail'].length > 0) {
+          thumbnail = files['thumbnail'][0].path;
+        }
+        if (files['images'] && files['images'].length > 0) {
+          const uploadedImagesUrls = files['images'].map(file => file.path);
+          images = [...images, ...uploadedImagesUrls];
+        }
+      }
 
       const post = await blogService.createBlogPost({
         user_id: userId,
@@ -22,9 +36,9 @@ export const blogController = {
         content,
         excerpt: excerpt || null,
         thumbnail: thumbnail || null,
-        images: images || [],
-        is_spoiler: isSpoiler || false,
-        movie_id: movieId || null,
+        images: images,
+        is_spoiler: isSpoiler === 'true' || isSpoiler === true,
+        movie_id: movieId && movieId !== 'null' && movieId !== 'undefined' ? movieId : null,
         status: status || 'PUBLISHED',
       });
 
@@ -34,7 +48,7 @@ export const blogController = {
       });
     } catch (error: any) {
       console.error('Lỗi tạo bài viết:', error);
-      res.status(500).json({ message: 'Lỗi máy chủ' });
+      res.status(500).json({ message: 'Lỗi máy chủ', error: String(error) });
     }
   },
 
