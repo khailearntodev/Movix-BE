@@ -1,9 +1,12 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, NotificationChannel } from '@prisma/client';
 import { CreateNotificationDto, NotificationResponse, NotificationType } from '../types/notification';
 import { PushNotificationService } from './push-notification.service';
 import { ExpoPushService } from './expo-push.service';
+import { sendNotificationEmail } from './email.service';
+import { notificationQueue } from '../types/notification.queue';
 
 export class NotificationService {
+
   private prisma: PrismaClient;
   private webSocketService: any;
   private pushNotificationService = new PushNotificationService();
@@ -38,92 +41,190 @@ export class NotificationService {
         title: dto.title,
         message: dto.message,
         data: dto.data || {},
-        action_url: dto.actionUrl
+        action_url: dto.actionUrl,
+        channel: dto.channel || NotificationChannel.IN_APP,
+        scheduled_at: dto.scheduledAt || null,
+        is_sent: false
       }
     });
 
-    if (this.webSocketService && dto.userId) {
-      await this.webSocketService.sendNotificationToUser(dto.userId, notification);
+    let delay = 0;
+    if (dto.scheduledAt) {
+      const targetTime = new Date(dto.scheduledAt).getTime();
+      const now = Date.now();
+      delay = targetTime > now ? targetTime - now : 0;
     }
 
-    if (dto.userId) {
-      await this.pushNotificationService.sendNotification(dto.userId, {
-        title: dto.title,
-        message: dto.message,
-        url: dto.actionUrl
-      });
-
-      await this.expoPushService.sendNotification(dto.userId, {
-        title: dto.title,
-        message: dto.message,
-        data: { url: dto.actionUrl }
-      });
-    }
+    await notificationQueue.add(
+      'process-notification',
+      { notificationId: notification.id },
+      { delay }
+    );
 
     return this.formatResponse(notification);
   }
 
+  async executeScheduledJob(notificationId: string): Promise<void> {
+    const notif = await this.prisma.notification.findUnique({
+      where: { id: notificationId },
+      include: { user: true }
+    });
+
+    if (!notif || notif.is_sent) return;
+
+    try {
+      if ((notif.channel === NotificationChannel.IN_APP || notif.channel === NotificationChannel.PUSH) && this.webSocketService && notif.user_id) {
+        await this.webSocketService.sendNotificationToUser(notif.user_id, notif);
+      }
+
+      if (notif.channel === NotificationChannel.PUSH && notif.user_id) {
+        await this.pushNotificationService.sendNotification(notif.user_id, {
+          title: notif.title,
+          message: notif.message,
+          url: notif.action_url || undefined
+        });
+
+        await this.expoPushService.sendNotification(notif.user_id, {
+          title: notif.title,
+          message: notif.message,
+          data: { url: notif.action_url }
+        });
+      }
+
+      if (notif.channel === NotificationChannel.EMAIL && notif.user?.email) {
+        const appName = process.env.APP_NAME || 'Movix';
+        const frontendUrl = (process.env.FRONTEND_URL || '').replace(/\/$/, '');
+        let actionLink = frontendUrl;
+
+        if (notif.action_url) {
+          if (notif.action_url.startsWith('http')) {
+            actionLink = notif.action_url;
+          } else {
+            const path = notif.action_url.startsWith('/') ? notif.action_url : `/${notif.action_url}`;
+            actionLink = `${frontendUrl}${path}`;
+          }
+        }
+
+        const htmlContent = `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>${notif.title}</title>
+            <style>
+              body { margin: 0; padding: 0; background-color: #141414; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+              .container { width: 100%; max-width: 600px; margin: 0 auto; background-color: #000000; border-radius: 8px; overflow: hidden; }
+              .header { padding: 30px; text-align: center; background-color: #000000; }
+              .logo { color: #E50914; font-size: 32px; font-weight: bold; text-transform: uppercase; letter-spacing: 2px; text-decoration: none; }
+              .content { padding: 40px 50px; background-color: #141414; color: #ffffff; }
+              .title { font-size: 24px; font-weight: bold; margin-bottom: 20px; color: #ffffff; }
+              .message { font-size: 16px; line-height: 1.6; color: #cccccc; margin-bottom: 30px; }
+              .button-container { text-align: center; margin-top: 20px; }
+              .button { background-color: #E50914; color: #ffffff !important; padding: 12px 30px; border-radius: 4px; text-decoration: none; font-weight: bold; display: inline-block; }
+              .footer { padding: 30px; text-align: center; color: #666666; font-size: 12px; background-color: #000000; border-top: 1px solid #333; }
+              .footer a { color: #888888; text-decoration: underline; }
+            </style>
+          </head>
+          <body>
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+              <tr>
+                <td align="center" style="padding: 20px 0;">
+                  <div class="container">
+                    <div class="header">
+                      <a href="${frontendUrl}" class="logo">${appName}</a>
+                    </div>
+                    <div class="content">
+                      <div class="title">${notif.title}</div>
+                      <div class="message">${notif.message}</div>
+                      ${notif.action_url ? `
+                      <div class="button-container">
+                        <a href="${actionLink}" class="button">Xem ngay tại Movix</a>
+                      </div>
+                      ` : ''}
+                    </div>
+                    <div class="footer">
+                      <p>Bạn nhận được email này vì bạn là thành viên của ${appName}.</p>
+                      <p>&copy; ${new Date().getFullYear()} ${appName}. All rights reserved.</p>
+                      <p><a href="${frontendUrl}/profile">Quản lý cài đặt thông báo</a></p>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            </table>
+          </body>
+          </html>
+        `;
+        await sendNotificationEmail(notif.user.email, notif.title, htmlContent);
+      }
+
+      await this.prisma.notification.update({
+        where: { id: notificationId },
+        data: { is_sent: true, sent_at: new Date() }
+      });
+
+    } catch (error) {
+      console.error(`[NotificationService] Lỗi khi gửi thông báo ${notificationId}:`, error);
+      throw error;
+    }
+  }
+
   async createBulkNotifications(userIds: string[], dto: Omit<CreateNotificationDto, 'userId'>): Promise<void> {
+    const channel = dto.channel || NotificationChannel.IN_APP;
+    const scheduledAt = dto.scheduledAt || null;
+    const startTime = new Date();
+
     const notifications = userIds.map(userId => ({
       user_id: userId,
       type: dto.type,
       title: dto.title,
       message: dto.message,
       data: dto.data || {},
-      action_url: dto.actionUrl
+      action_url: dto.actionUrl,
+      channel: channel,
+      scheduled_at: scheduledAt,
+      is_sent: false
     }));
 
-    await this.prisma.notification.createMany({
-      data: notifications
-    });
-
-    if (this.webSocketService) {
-      const sampleNotification = notifications[0];
-      await this.webSocketService.sendNotificationToUsers(userIds, {
-        id: 'bulk',
-        ...sampleNotification,
-        created_at: new Date()
-      });
+    let delay = 0;
+    if (scheduledAt) {
+      const targetTime = new Date(scheduledAt).getTime();
+      const now = Date.now();
+      delay = targetTime > now ? targetTime - now : 0;
     }
 
-    const pushPromises = userIds.flatMap(userId => [
-      this.pushNotificationService.sendNotification(userId, {
-        title: dto.title,
-        message: dto.message,
-        url: dto.actionUrl,
-      }),
-      this.expoPushService.sendNotification(userId, {
-        title: dto.title,
-        message: dto.message,
-        data: { url: dto.actionUrl }
-      })
-    ]);
+    const createdNotifications = await (this.prisma.notification as any).createManyAndReturn({
+      data: notifications,
+      select: { id: true }
+    });
 
-    const results = await Promise.allSettled(pushPromises);
-    const failed = results.filter(r => r.status === 'rejected');
-    if (failed.length > 0) {
-        console.warn(`⚠️ Có ${failed.length}/${pushPromises.length} lần gửi thông báo đẩy bị lỗi (bao gồm web push và Expo push, có thể do user chưa subscribe).`);
+    if (createdNotifications.length > 0) {
+      const jobs = createdNotifications.map((n: any) => ({
+        name: 'process-notification',
+        data: { notificationId: n.id },
+        opts: { delay }
+      }));
+      await notificationQueue.addBulk(jobs);
     }
   }
 
-async broadcastSystemNotification(title: string, message: string, data?: any): Promise<void> {
+  async broadcastSystemNotification(title: string, message: string, data?: any): Promise<void> {
     const users = await this.prisma.user.findMany({
-        where: { is_deleted: false, status: 'active' },
-        select: { id: true }
+      where: { is_deleted: false, status: 'active' },
+      select: { id: true }
     });
     const userIds = users.map(u => u.id);
     if (userIds.length === 0) return;
 
-    const actionUrl = data?.actionUrl;
-    
     await this.createBulkNotifications(userIds, {
-      type: 'SYSTEM' as any,
+      type: NotificationType.SYSTEM,
       title,
       message,
       data: data || {},
-      actionUrl
+      actionUrl: data?.actionUrl,
+      channel: data?.channel,
+      scheduledAt: data?.scheduledAt
     });
-
   }
 
   async getUserNotifications(userId: string, page: number = 1, limit: number = 20) {
@@ -133,8 +234,8 @@ async broadcastSystemNotification(title: string, message: string, data?: any): P
         { is_deleted: false },
         {
           OR: [
-            { user_id: userId },    
-            { user_id: null, type: 'SYSTEM' as any } 
+            { user_id: userId },
+            { user_id: null, type: 'SYSTEM' as any }
           ]
         }
       ]
@@ -213,11 +314,14 @@ async broadcastSystemNotification(title: string, message: string, data?: any): P
     return {
       id: notification.id,
       type: notification.type,
+      channel: notification.channel,
       title: notification.title,
       message: notification.message,
       data: notification.data,
       actionUrl: notification.action_url,
       isRead: notification.is_read,
+      isSent: notification.is_sent,
+      scheduledAt: notification.scheduled_at,
       createdAt: notification.created_at
     };
   }
@@ -243,19 +347,19 @@ async broadcastSystemNotification(title: string, message: string, data?: any): P
 
   async getSystemNotificationHistory(page = 1, limit = 10) {
     const skip = (page - 1) * limit;
-    
+
     const whereCondition = {
-      type: 'SYSTEM' as any, 
+      type: 'SYSTEM' as any,
       is_deleted: false,
       OR: [
-        { user_id: null }, 
+        { user_id: null },
         {
-            user: {
-                OR: [
-                    { role: { name: 'Admin' } }, 
-                    { is_flagged: true }       
-                ]
-            }
+          user: {
+            OR: [
+              { role: { name: 'Admin' } },
+              { is_flagged: true }
+            ]
+          }
         }
       ]
     };
@@ -266,16 +370,16 @@ async broadcastSystemNotification(title: string, message: string, data?: any): P
         skip,
         take: limit,
         include: {
-            user: {
-                select: { 
-                    id: true, 
-                    username: true, 
-                    display_name: true, 
-                    avatar_url: true,
-                    role: { select: { name: true } }, 
-                    is_flagged: true                  
-                }
+          user: {
+            select: {
+              id: true,
+              username: true,
+              display_name: true,
+              avatar_url: true,
+              role: { select: { name: true } },
+              is_flagged: true
             }
+          }
         }
       }),
       this.prisma.notification.count({ where: whereCondition })
@@ -283,14 +387,14 @@ async broadcastSystemNotification(title: string, message: string, data?: any): P
 
     return {
       data: history.map(item => ({
-          ...this.formatResponse(item),
-          recipient: item.user ? {
-              username: item.user.username,
-              displayName: item.user.display_name,
-              avatarUrl: item.user.avatar_url,
-              role: item.user.role?.name,
-              isFlagged: item.user.is_flagged
-          } : null
+        ...this.formatResponse(item),
+        recipient: item.user ? {
+          username: item.user.username,
+          displayName: item.user.display_name,
+          avatarUrl: item.user.avatar_url,
+          role: item.user.role?.name,
+          isFlagged: item.user.is_flagged
+        } : null
       })),
       pagination: {
         page,

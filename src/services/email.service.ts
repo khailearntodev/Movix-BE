@@ -7,12 +7,8 @@ const pass = process.env.SMTP_PASS;
 const from = process.env.SMTP_FROM || user;
 const appName = process.env.APP_NAME || 'Movix';
 const supportEmail = process.env.SUPPORT_EMAIL || from;
-
-// 1. Gán link banner mới
-const bannerUrl =
-  'https://www.devicemag.com/wp-content/uploads/2023/03/netflix-error-22004-2.jpg';
-// 2. Xóa logoUrl
-// const logoUrl = process.env.LOGO_URL || ''; 
+const bannerUrl = process.env.BANNER_URL;
+const logoUrl = process.env.LOGO_URL; 
 
 if (!user || !pass) {
   console.warn(
@@ -148,6 +144,28 @@ export const sendVerificationEmail = async (
     throw new Error('Không thể gửi email xác thực.');
   }
 };
+
+export const sendNotificationEmail = async (
+  to: string,
+  subject: string,
+  templateHtml: string
+) => {
+  const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
+    }
+  });
+
+  await transporter.sendMail({
+    from: `"Movix Notification" <${process.env.SMTP_USER}>`,
+    to,
+    subject,
+    html: templateHtml
+  });
+  console.log(`Email đã gửi tới: ${to}`);
+}
 
 export const sendPasswordResetEmail = async (
   to: string,
