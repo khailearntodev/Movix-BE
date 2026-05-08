@@ -35,3 +35,27 @@ export const updateReportStatus = async (req: Request, res: Response) => {
     res.status(500).json({ message: 'Lỗi cập nhật trạng thái báo cáo', error: error.message });
   }
 };
+
+
+export const getFinancialStats = async (req: Request, res: Response) => {
+  try {
+    const { startDate: startStr, endDate: endStr } = req.query;
+
+    if (!startStr || !endStr) {
+      return res.status(400).json({ message: 'Thiếu tham số ngày tháng' });
+    }
+
+    const startDate = new Date(startStr as string);
+    const endDate = new Date(endStr as string);
+
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+      return res.status(400).json({ message: 'Định dạng ngày tháng không hợp lệ' });
+    }
+
+    const result = await adminReportService.getFinancialReport(startDate, endDate);
+    res.json(result);
+  } catch (error: any) {
+    console.error('Error fetching financial stats:', error);
+    res.status(500).json({ message: 'Lỗi lấy số liệu tài chính', error: error.message });
+  }
+};
