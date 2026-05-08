@@ -34,6 +34,7 @@ import reportRoutes from './routes/report.routes';
 import adminReportRoutes from './routes/admin.report.routes';
 import adminGamificationRoutes from './routes/admin.gamification.routes';
 import userGamificationRoutes from './routes/user.gamification.routes';
+import blogRoutes from './routes/blog.route';
 import { notificationWorker, notificationQueue } from './services/notification.worker.service';
 
 const app = express();
@@ -88,6 +89,7 @@ app.use("/api/gamification", userGamificationRoutes);
 
 app.use('/api/reports', reportRoutes);
 app.use('/api/admin/reports', adminReportRoutes);
+app.use('/api/blogs', blogRoutes);
 app.get('/api', (req, res) => {
   res.send('Movix BE is running!');
 });
