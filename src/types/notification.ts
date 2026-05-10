@@ -1,3 +1,5 @@
+import { NotificationChannel } from '@prisma/client';
+
 export enum NotificationType {
   NEW_MOVIE = 'NEW_MOVIE',
   COMMENT_REPLY = 'COMMENT_REPLY',
@@ -13,15 +15,20 @@ export interface CreateNotificationDto {
   message: string;
   data?: any;
   actionUrl?: string;
+  channel?: NotificationChannel;
+  scheduledAt?: Date;
 }
 
 export interface NotificationResponse {
   id: string;
   type: NotificationType;
+  channel?: NotificationChannel;
   title: string;
   message: string;
   data?: any;
   actionUrl?: string;
   isRead: boolean;
+  isSent?: boolean;
+  scheduledAt?: Date;
   createdAt: Date;
 }

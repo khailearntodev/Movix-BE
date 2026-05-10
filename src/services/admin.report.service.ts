@@ -1,5 +1,5 @@
 import { prisma } from '../lib/prisma';
-import { ReportStatus, ReportTargetType } from '@prisma/client';
+import { ReportStatus, ReportTargetType, TransactionStatus, RefundStatus } from '@prisma/client';
 
 export const getAllReports = async (
   page: number,
@@ -102,3 +102,55 @@ export const updateReportStatus = async (
     },
   });
 };
+
+export const getFinancialReport = async(startDay: Date, endDate: Date) => {
+  const [revenueStats, refundStats, transactionByPlanRaw, plans] = await Promise.all([
+    prisma.transaction.aggregate({
+      where: {
+        status: TransactionStatus.COMPLETED,
+        created_at: { gte: startDay, lte: endDate }
+      },
+      _sum: { amount: true },
+      _count: { id: true }
+    }),
+    prisma.transaction.aggregate({
+      where: {
+        status: TransactionStatus.REFUNDED,
+        created_at: { gte: startDay, lte: endDate }
+      },
+      _sum: { amount: true }
+    }),
+    prisma.transaction.groupBy({
+      by: ['plan_id'],
+      where: {
+        status: TransactionStatus.COMPLETED,
+        created_at: { gte: startDay, lte: endDate }
+      },
+      _sum: { amount: true },
+      _count: { id: true }
+    }),
+    prisma.subscriptionPlan.findMany({
+      select: { id: true, name: true }
+    })
+  ]);
+
+  const planMap = new Map(plans.map(p => [p.id, p.name]));
+  const transactionByPlan = transactionByPlanRaw.map(item => ({
+    ...item,
+    plan_name: item.plan_id ? (planMap.get(item.plan_id) || 'Gói ẩn') : 'Hệ thống'
+  }));
+
+  const totalRevenue = revenueStats._sum.amount || 0;
+  const totalRefund = refundStats._sum.amount || 0;
+
+  return {
+    period: { start: startDay, end: endDate },
+    summary: {
+      totalRevenue,
+      totalRefund,
+      netRevenue: totalRevenue - totalRefund,
+      totalTransactions: revenueStats._count.id,
+    },
+    planBreakdown: { transactionByPlan }
+  };
+} 

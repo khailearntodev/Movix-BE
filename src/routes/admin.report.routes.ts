@@ -6,5 +6,6 @@ const router = express.Router();
 
 router.get('/get-all', authenticateToken, adminReportController.getReports);
 router.patch('/update-status/:id', authenticateToken, adminReportController.updateReportStatus);
+router.get('/get-financial-report', authenticateToken, adminReportController.getFinancialStats);
 
 export default router;
