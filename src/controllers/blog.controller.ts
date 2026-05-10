@@ -149,6 +149,118 @@ export const blogController = {
       res.status(500).json({ message: 'Lỗi máy chủ' });
     }
   },
+
+  updatePost: async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const userId = getUserId(req);
+      const post = await blogService.getBlogPostById(id);
+
+      if (!post) {
+        return res.status(404).json({ message: 'Bài viết không tồn tại' });
+      }
+
+      if (post.user.id !== userId) {
+        return res.status(403).json({ message: 'Bạn không có quyền chỉnh sửa bài viết này' });
+      }
+
+      const { title, content, excerpt, isSpoiler, movieId, status } = req.body;
+      let slug = title ? generateSlug(title) : undefined;
+
+      const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
+      let thumbnail = req.body.thumbnail; 
+      let images = req.body.images ? (Array.isArray(req.body.images) ? req.body.images : [req.body.images]) : undefined;
+
+      if (files) {
+        if (files['thumbnail'] && files['thumbnail'].length > 0) {
+          thumbnail = files['thumbnail'][0].path;
+        }
+        if (files['images'] && files['images'].length > 0) {
+          const uploadedImagesUrls = files['images'].map(file => file.path);
+          images = images ? [...images, ...uploadedImagesUrls] : uploadedImagesUrls;
+        }
+      }
+
+      const updatedPost = await blogService.updateBlogPost(id, {
+        title,
+        slug,
+        content,
+        excerpt,
+        thumbnail,
+        images,
+        is_spoiler: isSpoiler !== undefined ? (isSpoiler === 'true' || isSpoiler === true) : undefined,
+        movie_id: movieId === 'null' || movieId === 'undefined' ? null : movieId,
+        status,
+      });
+
+      res.status(200).json({
+        message: 'Cập nhật bài viết thành công',
+        data: updatedPost,
+      });
+    } catch (error) {
+      console.error('Lỗi cập nhật bài viết:', error);
+      res.status(500).json({ message: 'Lỗi máy chủ' });
+    }
+  },
+
+  deletePost: async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const userId = getUserId(req);
+      const post = await blogService.getBlogPostById(id);
+
+      if (!post) {
+        return res.status(404).json({ message: 'Bài viết không tồn tại' });
+      }
+
+      if (post.user.id !== userId) {
+        return res.status(403).json({ message: 'Bạn không có quyền xóa bài viết này' });
+      }
+
+      await blogService.deleteBlogPost(id);
+
+      res.status(200).json({ message: 'Xóa bài viết thành công' });
+    } catch (error) {
+      console.error('Lỗi xóa bài viết:', error);
+      res.status(500).json({ message: 'Lỗi máy chủ' });
+    }
+  },
+
+  toggleLike: async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const userId = getUserId(req);
+
+      const post = await blogService.getBlogPostById(id);
+      if (!post) {
+        return res.status(404).json({ message: 'Bài viết không tồn tại' });
+      }
+
+      const result = await blogService.toggleLikeBlogPost(id, userId);
+      res.status(200).json({ message: 'Thao tác thành công', data: result });
+    } catch (error) {
+      console.error('Lỗi thích bài viết:', error);
+      res.status(500).json({ message: 'Lỗi máy chủ' });
+    }
+  },
+
+  toggleBookmark: async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const userId = getUserId(req);
+
+      const post = await blogService.getBlogPostById(id);
+      if (!post) {
+        return res.status(404).json({ message: 'Bài viết không tồn tại' });
+      }
+
+      const result = await blogService.toggleBookmarkBlogPost(id, userId);
+      res.status(200).json({ message: 'Thao tác thành công', data: result });
+    } catch (error) {
+      console.error('Lỗi lưu bài viết:', error);
+      res.status(500).json({ message: 'Lỗi máy chủ' });
+    }
+  },
 };
 
 export default blogController;

@@ -253,12 +253,111 @@ export const getUserBlogPosts = async (
     pages: Math.ceil(total / limit),
   };
 };
-
-
+export const updateBlogPost = async (id: string, data: Partial<{
+  title: string;
+  slug: string;
+  content: string;
+  excerpt?: string;
+  thumbnail?: string;
+  images?: string[];
+  is_spoiler?: boolean;
+  movie_id?: string;
+  status?: 'DRAFT' | 'PUBLISHED' | 'HIDDEN' | 'ARCHIVED';
+}>) => {
+  return prisma.blogPost.update({
+    where: { id },
+    data: {
+      title: data.title,
+      slug: data.slug,
+      content: data.content,
+      excerpt: data.excerpt,
+      thumbnail: data.thumbnail,
+      images: data.images,
+      is_spoiler: data.is_spoiler,
+      movie_id: data.movie_id,
+      status: data.status,
+    },
+  });
+};
+export const deleteBlogPost = async (id: string) => {
+  return prisma.blogPost.delete({
+    where: { id },
+  });
+};
+export const toggleLikeBlogPost = async (postId: string, userId: string) => {
+  const existingLike = await prisma.blogLike.findUnique({
+    where: {
+      user_id_post_id: {
+        post_id: postId,
+        user_id: userId,
+      },
+    },
+  });
+  if (existingLike) {
+    return prisma.blogLike.delete({
+      where: {
+        user_id_post_id: {
+          post_id: postId,
+          user_id: userId,
+        },
+      },
+    });
+  }
+  return prisma.blogLike.create({
+    data: {
+      post_id: postId,
+      user_id: userId,
+    },
+  });
+};
+export const getBlogPostLikes = async (postId: string) => {
+  return prisma.blogLike.findMany({
+    where: { post_id: postId },
+    select: { user_id: true },
+  });
+};
+export const toggleBookmarkBlogPost = async (postId: string, userId: string) => {
+  const existingBookmark = await prisma.blogBookmark.findUnique({
+    where: {
+      user_id_post_id: {
+        post_id: postId,
+        user_id: userId,
+      },
+    },
+  });
+  if (existingBookmark) {
+    return prisma.blogBookmark.delete({
+      where: {
+        user_id_post_id: {
+          post_id: postId,
+          user_id: userId,
+        },
+      },
+    });
+  }
+  return prisma.blogBookmark.create({
+    data: {
+      post_id: postId,
+      user_id: userId,
+    },
+  });
+};
+export const getBlogPostBookmarks = async (postId: string) => {
+  return prisma.blogBookmark.findMany({
+    where: { post_id: postId },
+    select: { user_id: true },
+  });
+};
 export const BlogService = {
   createBlogPost,
   getBlogPostById,
   getBlogPostBySlug,
   getAllBlogPosts,
   getUserBlogPosts,
+  updateBlogPost,
+  deleteBlogPost,
+  toggleLikeBlogPost,
+  getBlogPostLikes,
+  toggleBookmarkBlogPost,
+  getBlogPostBookmarks,
 };
