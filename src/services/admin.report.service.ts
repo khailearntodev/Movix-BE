@@ -1,5 +1,5 @@
 import { prisma } from '../lib/prisma';
-import { ReportStatus, ReportTargetType, TransactionStatus, RefundStatus } from '@prisma/client';
+import { ReportStatus, ReportTargetType, TransactionStatus, RefundStatus, PostStatus } from '@prisma/client';
 
 export const getAllReports = async (
   page: number,
@@ -65,6 +65,25 @@ export const getAllReports = async (
             where: { id: report.target_id },
             select: { display_name: true, email: true, avatar_url: true },
           });
+        } else if (report.target_type === 'BLOG') {
+          targetData = await prisma.blogPost.findUnique({
+            where: { id: report.target_id },
+            select: {
+              title: true,
+              id: true,
+              slug: true,
+              status: true,
+              content: true,
+              user: {
+                select: {
+                  id: true,
+                  display_name: true,
+                  email: true,
+                  avatar_url: true,
+                }
+              }
+            },
+          });
         }
       } catch (error) {
         console.error(`Error fetching targetData for report ${report.id}`, error);
@@ -103,7 +122,28 @@ export const updateReportStatus = async (
   });
 };
 
-export const getFinancialReport = async(startDay: Date, endDate: Date) => {
+export const moderateAndHideBlogPost = async (reportId: string, blogId: string, resolverId: string, resolutionNote?: string) => {
+  return await prisma.$transaction(async (tx) => {
+    const updatedBlogPost = await tx.blogPost.update({
+      where: { id: blogId },
+      data: { status: PostStatus.HIDDEN },
+    });
+
+    const updatedReport = await tx.report.update({
+      where: { id: reportId },
+      data: {
+        status: ReportStatus.RESOLVED,
+        resolved_at: new Date(),
+        resolved_by: resolverId,
+        resolution_note: resolutionNote || 'Nội dung vi phạm tiêu chuẩn cộng đồng!!!',
+      },
+    });
+
+    return { updatedBlogPost, updatedReport };
+  });
+};
+
+export const getFinancialReport = async (startDay: Date, endDate: Date) => {
   const [revenueStats, refundStats, transactionByPlanRaw, plans] = await Promise.all([
     prisma.transaction.aggregate({
       where: {

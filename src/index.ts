@@ -32,6 +32,7 @@ import { startCronJobs } from './services/cron.service';
 import adminTransactionRoutes from './routes/admin.transaction.routes';
 import reportRoutes from './routes/report.routes';
 import adminReportRoutes from './routes/admin.report.routes';
+import adminBlogRoutes from './routes/admin.blog.routes';
 import adminGamificationRoutes from './routes/admin.gamification.routes';
 import userGamificationRoutes from './routes/user.gamification.routes';
 import blogRoutes from './routes/blog.route';
@@ -90,6 +91,7 @@ app.use("/api/gamification", userGamificationRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/admin/reports', adminReportRoutes);
 app.use('/api/blogs', blogRoutes);
+app.use('/api/admin/blogs', adminBlogRoutes);
 app.get('/api', (req, res) => {
   res.send('Movix BE is running!');
 });

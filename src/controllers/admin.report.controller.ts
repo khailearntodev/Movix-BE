@@ -59,3 +59,21 @@ export const getFinancialStats = async (req: Request, res: Response) => {
     res.status(500).json({ message: 'Lỗi lấy số liệu tài chính', error: error.message });
   }
 };
+
+export const moderateAndHideBlogPost = async (req: Request, res: Response) => {
+  try {
+    const { reportId } = req.params;
+    const { blogId, resolutionNote } = req.body;
+    const resolverId = (req as any).userId;
+
+    if (!blogId) {
+      return res.status(400).json({ message: 'Thiếu thông tin blogId cần kiểm duyệt' });
+    }
+
+    const result = await adminReportService.moderateAndHideBlogPost(reportId, blogId, resolverId, resolutionNote);
+    res.json({ message: 'Cập nhật thành công', result });
+  } catch (error: any) {
+    console.error('Error updating blog post status:', error);
+    res.status(500).json({ message: 'Lỗi cập nhật trạng thái blog post', error: error.message });
+  }
+};
