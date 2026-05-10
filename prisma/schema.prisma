@@ -48,6 +48,7 @@ enum PostStatus {
   PUBLISHED
   HIDDEN
   ARCHIVED
+  REJECTED
 }
 
 enum ReportTargetType {
@@ -728,6 +729,7 @@ model BlogPost {
   view_count Int        @default(0)
   created_at DateTime   @default(now())
   updated_at DateTime   @updatedAt
+  is_deleted Boolean @default(false)
 
   user      User           @relation(fields: [user_id], references: [id], onDelete: Cascade)
   movie     Movie?         @relation(fields: [movie_id], references: [id], onDelete: SetNull)
