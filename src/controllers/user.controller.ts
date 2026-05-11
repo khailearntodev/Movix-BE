@@ -122,7 +122,7 @@ export const changeMyPassword = async (req: Request, res: Response) => {
 export const requestMySubscriptionRefund = async (req: Request, res: Response) => {
   try {
     const userId = req.userId;
-    const { reason } = req.body as { reason?: string };
+    const { reason, bank_name, account_number } = req.body as { reason?: string, bank_name?: string, account_number?: string };
 
     if (!userId) {
       return res.status(401).json({ message: 'Không thể xác định người dùng.' });
@@ -131,6 +131,8 @@ export const requestMySubscriptionRefund = async (req: Request, res: Response) =
     const result = await subscriptionService.requestRefundAndCancelSubscription(
       userId,
       reason,
+      bank_name,
+      account_number
     );
 
     return res.status(200).json(result);

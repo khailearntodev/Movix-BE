@@ -67,6 +67,8 @@ export const cancelUserSubscription = async (userId: string) => {
 export const requestRefundAndCancelSubscription = async (
   userId: string,
   reason?: string,
+  bank_name?: string,
+  account_number?: string
 ) => {
   const subscription = await prisma.userSubscription.findUnique({
     where: { user_id: userId },
@@ -154,6 +156,8 @@ export const requestRefundAndCancelSubscription = async (
       transaction_id: transaction.id,
       status: 'PENDING',
       reason: reason?.trim() || 'No reason provided',
+      bank_name: bank_name?.trim() || null,
+      account_number: account_number?.trim() || null,
     },
   });
 

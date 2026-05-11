@@ -248,7 +248,7 @@ export const getAllRefundRequests = async (
     };
 };
 
-export const createRefundRequest = async (transactionId: string, reason: string) => {
+export const createRefundRequest = async (transactionId: string, reason: string, bank_name?: string, account_number?: string) => {
     const transaction = await prisma.transaction.findUnique({
         where: { id: transactionId }
     });
@@ -276,7 +276,9 @@ export const createRefundRequest = async (transactionId: string, reason: string)
         data: {
             user_id: transaction.user_id,
             transaction_id: transactionId,
-            reason: reason || "Yêu cầu hoàn tiền từ Admin"
+            reason: reason || "Yêu cầu hoàn tiền từ Admin",
+            bank_name: bank_name || null,
+            account_number: account_number || null,
         }
     });
 
