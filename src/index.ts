@@ -35,7 +35,8 @@ import adminReportRoutes from './routes/admin.report.routes';
 import adminBlogRoutes from './routes/admin.blog.routes';
 import adminGamificationRoutes from './routes/admin.gamification.routes';
 import userGamificationRoutes from './routes/user.gamification.routes';
-import blogRoutes from './routes/blog.route';
+import blogRoutes from './routes/blog.routes';
+import followRoutes from './routes/follow.routes';
 import { notificationWorker, notificationQueue } from './services/notification.worker.service';
 
 const app = express();
@@ -87,6 +88,7 @@ app.use("/api/livekit", livekitRoutes);
 app.use("/api/admin/subscriptions", adminSubscriptionRoutes);
 app.use("/api/admin/gamification", adminGamificationRoutes);
 app.use("/api/gamification", userGamificationRoutes);
+app.use('/api/follow', followRoutes);
 
 app.use('/api/reports', reportRoutes);
 app.use('/api/admin/reports', adminReportRoutes);
