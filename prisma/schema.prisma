@@ -662,6 +662,8 @@ model RefundRequest {
   user_id        String       @db.Uuid
   transaction_id String       @db.Uuid
   reason         String?      @db.Text
+  bank_name      String?      @db.VarChar(100)
+  account_number String?      @db.VarChar(50)
   status         RefundStatus @default(PENDING)
   created_at     DateTime     @default(now())
   updated_at     DateTime     @updatedAt
