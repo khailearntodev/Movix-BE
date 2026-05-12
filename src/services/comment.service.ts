@@ -47,10 +47,10 @@ const enrichUsersWithBadge = async (
   });
 };
 
-export const getCommentsByMovie = async (movieId: string) => {
+export const getCommentsByTarget = async (targetId: string, targetType: 'movie' | 'post') => {
   const comments = await prisma.comment.findMany({
     where: {
-      movie_id: movieId,
+      ...(targetType === 'movie' ? { movie_id: targetId } : { post_id: targetId }),
       parent_comment_id: null, 
       is_deleted: false,
       is_hidden: false,
@@ -122,7 +122,8 @@ export const getCommentsByMovie = async (movieId: string) => {
 
 export const createComment = async (
   userId: string,
-  movieId: string,
+  targetId: string,
+  targetType: 'movie' | 'post',
   comment: string,
   parentCommentId?: string,
   isSpoiler?: boolean,
@@ -144,7 +145,8 @@ export const createComment = async (
   const newComment = await prisma.comment.create({
     data: {
       user_id: userId,
-      movie_id: movieId,
+      movie_id: targetType === 'movie' ? targetId : null,
+      post_id: targetType === 'post' ? targetId : null,
       comment: comment,
       parent_comment_id: parentCommentId,
       is_spoiler: isSpoiler || false,
@@ -166,12 +168,22 @@ export const createComment = async (
     });
 
     if (author?.is_flagged) {
-      const movie = await prisma.movie.findUnique({
-        where: { id: movieId },
-        select: { title: true }
-      });
+      let targetTitle = 'Không xác định';
+      if (targetType === 'movie') {
+        const movie = await prisma.movie.findUnique({
+          where: { id: targetId },
+          select: { title: true }
+        });
+        targetTitle = movie?.title || 'Phim không xác định';
+      } else {
+        const post = await prisma.blogPost.findUnique({
+          where: { id: targetId },
+          select: { title: true }
+        });
+        targetTitle = post?.title || 'Bài viết không xác định';
+      }
 
-      const actionDescription = `đã đăng bình luận: "${comment.length > 30 ? comment.substring(0, 30) + '...' : comment}" tại phim "${movie?.title}"`;
+      const actionDescription = `đã đăng bình luận: "${comment.length > 30 ? comment.substring(0, 30) + '...' : comment}" tại ${targetType === 'movie' ? 'phim' : 'bài viết'} "${targetTitle}"`;
       await notificationService.notifyAdminsAboutFlaggedActivity(
         author.display_name || author.username,
         actionDescription,

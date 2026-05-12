@@ -9,11 +9,15 @@ const getUserId = (req: Request) => req.userId as string;
 export const commentController = {
   getComments: async (req: Request, res: Response) => {
     try {
-      const { movieId } = req.query;
-      if (!movieId) {
-        return res.status(400).json({ message: 'Phải có movieId' });
+      const { movieId, postId } = req.query;
+      const targetId = (movieId || postId) as string;
+      const targetType = movieId ? 'movie' : 'post';
+
+      if (!targetId) {
+        return res.status(400).json({ message: 'Phải có movieId hoặc postId' });
       }
-      const comments = await commentService.getCommentsByMovie(movieId as string);
+
+      const comments = await commentService.getCommentsByTarget(targetId, targetType);
       res.status(200).json(comments);
     } catch (error) {
       res.status(500).json({ message: 'Lỗi máy chủ' });
@@ -23,17 +27,20 @@ export const commentController = {
   postComment: async (req: Request, res: Response) => {
     try {
       const userId = getUserId(req);
-      const { movieId, comment, parentCommentId, isSpoiler } = req.body;
+      const { movieId, postId, comment, parentCommentId, isSpoiler } = req.body;
+      const targetId = (movieId || postId) as string;
+      const targetType = movieId ? 'movie' : 'post';
 
-      if (!movieId || !comment) {
-        return res.status(400).json({ message: 'Phải có movieId và comment' });
+      if (!targetId || !comment) {
+        return res.status(400).json({ message: 'Phải có movieId hoặc postId và comment' });
       }
       const toxicityResult = await checkToxicity(comment);
       const shouldHide = toxicityResult.isToxic;
 
       const newComment = await commentService.createComment(
         userId,
-        movieId,
+        targetId,
+        targetType,
         comment,
         parentCommentId,
         isSpoiler,
@@ -51,18 +58,35 @@ export const commentController = {
         try {
           const parentComment = await commentService.getCommentById(parentCommentId);
           if (parentComment && parentComment.user_id !== userId) {
-            const [currentUser, currentMovie] = await Promise.all([
-              userService.getUserById(userId),
-              movieService.getMovieById(movieId)
-            ]);
+            const currentUser = await userService.getUserById(userId);
 
-            if (currentUser && currentMovie) {
-              await notifyCommentReply(
-                parentComment.user_id,
-                currentUser.username || currentUser.display_name,
-                currentMovie.title,
-                currentMovie.slug
-              );
+            if (currentUser) {
+              let targetTitle = '';
+              let targetUrl = '';
+              
+              if (targetType === 'movie') {
+                const currentMovie = await movieService.getMovieById(targetId);
+                if (currentMovie) {
+                  targetTitle = currentMovie.title;
+                  targetUrl = `/movies/${currentMovie.slug}#comments`;
+                }
+              } else {
+                const { prisma } = require('../lib/prisma');
+                const currentPost = await prisma.blogPost.findUnique({ where: { id: targetId }});
+                if (currentPost) {
+                  targetTitle = currentPost.title;
+                  targetUrl = `/blog/${currentPost.slug}#comments`;
+                }
+              }
+              
+              if (targetTitle && targetUrl) {
+                await notifyCommentReply(
+                  parentComment.user_id,
+                  currentUser.username || currentUser.display_name,
+                  targetTitle,
+                  targetUrl
+                );
+              }
             }
           }
         } catch (notifyError) {
@@ -71,6 +95,7 @@ export const commentController = {
       }
       res.status(201).json(newComment);
     } catch (error) {
+      console.error(error);
       res.status(500).json({ message: 'Lỗi máy chủ' });
     }
   },
