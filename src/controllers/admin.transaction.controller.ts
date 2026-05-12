@@ -61,13 +61,13 @@ export const getAllRefundRequests = async (req: Request, res: Response) => {
 
 export const createRefundRequest = async (req: Request, res: Response) => {
     try {
-        const { transactionId, reason } = req.body;
+        const { transactionId, reason, bank_name, account_number } = req.body;
         
         if (!transactionId) {
             return res.status(400).json({ message: 'Thiếu transactionId' });
         }
 
-        const refundRequest = await transactionService.createRefundRequest(transactionId, reason);
+        const refundRequest = await transactionService.createRefundRequest(transactionId, reason, bank_name, account_number);
         res.status(201).json({ message: 'Tạo yêu cầu hoàn tiền thành công', data: refundRequest });
     } catch (error: any) {
         console.error("Lỗi tạo yêu cầu hoàn tiền:", error);
