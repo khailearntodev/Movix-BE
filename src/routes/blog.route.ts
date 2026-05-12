@@ -64,4 +64,7 @@ router.post('/:id/like', blogController.toggleLike);
 // POST /api/blogs/:id/bookmark
 router.post('/:id/bookmark', blogController.toggleBookmark);
 
+// GET /api/blogs/bookmarks
+router.get('/bookmarks', blogController.getSavedBlogs)
+
 export default router;

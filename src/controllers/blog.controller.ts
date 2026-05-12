@@ -261,6 +261,23 @@ export const blogController = {
       res.status(500).json({ message: 'Lỗi máy chủ' });
     }
   },
+
+  getSavedBlogs: async (req: Request, res: Response) => {
+    try {
+      const userId = getUserId(req);
+      const { page = 1, limit = 10, search } = req.query;
+      const result = await blogService.getSavedBlogs(
+        userId,
+        parseInt(page as string) || 1,
+        parseInt(limit as string) || 10,
+        search as string
+      );
+      res.status(200).json(result);
+    } catch (error) {
+      console.error('Lỗi lấy bài viết đã lưu:', error);
+      res.status(500).json({ message: 'Lỗi máy chủ' });
+    }
+  }
 };
 
 export default blogController;
