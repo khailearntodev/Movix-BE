@@ -327,7 +327,8 @@ model Rating {
 model Comment {
   id                String   @id @default(uuid()) @db.Uuid
   user_id           String   @db.Uuid
-  movie_id          String   @db.Uuid
+  movie_id          String?  @db.Uuid
+  post_id           String?  @db.Uuid
   comment           String
   is_spoiler        Boolean  @default(false)
   parent_comment_id String?  @db.Uuid
@@ -339,7 +340,8 @@ model Comment {
   is_pinned         Boolean  @default(false)
 
   user           User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  movie          Movie     @relation(fields: [movie_id], references: [id], onDelete: Cascade)
+  movie          Movie?    @relation(fields: [movie_id], references: [id], onDelete: Cascade)
+  post           BlogPost? @relation(fields: [post_id], references: [id], onDelete: Cascade)
   parent_comment Comment?  @relation("Replies", fields: [parent_comment_id], references: [id], onDelete: SetNull)
   replies        Comment[] @relation("Replies")
 }
@@ -737,6 +739,7 @@ model BlogPost {
   movie     Movie?         @relation(fields: [movie_id], references: [id], onDelete: SetNull)
   likes     BlogLike[]
   bookmarks BlogBookmark[]
+  comments  Comment[]
 }
 
 model BlogLike {

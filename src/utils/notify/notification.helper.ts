@@ -26,8 +26,8 @@ export async function notifyNewMovie(movieSlug: string, movieTitle: string) {
 export async function notifyCommentReply(
   originalUserId: string,
   replyUserName: string,
-  movieTitle: string,
-  movieSlug: string
+  targetTitle: string,
+  targetUrl: string
 
 ) {
   if (!notificationService) return;
@@ -36,9 +36,9 @@ export async function notifyCommentReply(
     userId: originalUserId,
     type: NotificationType.COMMENT_REPLY,
     title: 'Có người phản hồi bình luận',
-    message: `${replyUserName} đã phản hồi bình luận của bạn về "${movieTitle}"`,
-    data: { movieSlug },
-    actionUrl: `/movies/${movieSlug}#comments`
+    message: `${replyUserName} đã phản hồi bình luận của bạn về "${targetTitle}"`,
+    data: { targetUrl },
+    actionUrl: targetUrl
   });
 }
 
