@@ -92,7 +92,7 @@ export async function checkAIFeatureLimit(
   };
 }
 
-async function generateContentSafe(prompt: string, maxRetries = 2) {
+export async function generateContentSafe(prompt: string, maxRetries = 2) {
   const modelsToTry = [
     "gemini-2.5-flash",
     "gemini-2.0-flash",
