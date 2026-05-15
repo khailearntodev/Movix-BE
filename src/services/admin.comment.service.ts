@@ -52,6 +52,9 @@ export const getAllComments = async (
         movie: {
           select: { id: true, title: true, slug: true, poster_url: true }
         },
+        post: {
+          select: { id: true, title: true, slug: true, thumbnail: true }
+        },
         parent_comment: {
             include: {
                 user: { select: { username: true } }

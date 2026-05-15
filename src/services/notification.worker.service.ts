@@ -1,35 +1,42 @@
-import { Queue, Worker, Job } from 'bullmq';
+import { Worker, Job } from 'bullmq';
 import { redisConnection } from '../lib/redis';
 import { NotificationService } from './notification.service';
 import { notificationQueue } from '../types/notification.queue';
 
 export { notificationQueue };
 
-export const notificationWorker = new Worker('notificationQueue', async (job: Job) => {
-    const notificationService = new NotificationService();
-    const { notificationId } = job.data;
-    try {
-        await notificationService.executeScheduledJob(notificationId);
-    } catch (err) {
-        console.error(`[Worker] Error in job ${job.id}:`, err);
-        throw err;
-    }
-}, {
-    connection: redisConnection
-});
+export let notificationWorker: Worker;
 
-notificationWorker.on('completed', (job: Job) => {
-    console.log(`[Worker] Job ${job.id} completed event triggered`);
-});
+export const setupNotificationWorker = () => {
+    
+    notificationWorker = new Worker('notificationQueue', async (job: Job) => {
+        
+        const { getNotificationService } = require('../utils/notify/notification.helper');
+        let notificationService;
+        try {
+            notificationService = getNotificationService();
+        } catch (e) {
+            notificationService = new NotificationService();
+        }
 
-notificationWorker.on('failed', (job: Job | undefined, err: Error) => {
-    console.error(`[Worker] Job ${job?.id} FAILED with error: ${err.message}`);
-});
+        const { notificationId } = job.data;
+        try {
+            await notificationService.executeScheduledJob(notificationId);
+        } catch (err) {
+            throw err;
+        }
+    }, {
+        connection: redisConnection,
+        concurrency: 5
+    });
 
-notificationWorker.on('error', (err: Error) => {
-    console.error(`[Worker] FATAL ERROR:`, err);
-});
+    notificationWorker.on('completed', (job: Job) => {
+        console.log(`[Worker] Job ${job.id} đã hoàn thành`);
+    });
 
-notificationQueue.on('error', (err: Error) => {
-    console.error(`[Queue] FATAL ERROR:`, err);
-});
+    notificationWorker.on('failed', (job: Job | undefined, err: Error) => {
+        console.error(`[Worker] 🔴 Job ${job?.id} THẤT BẠI: ${err.message}`);
+    });
+
+    return notificationWorker;
+};
