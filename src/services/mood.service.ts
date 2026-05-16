@@ -1,7 +1,7 @@
 import { Prisma, MoodType } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 import { sign } from "crypto";
-import { generateContentSafe } from "./ai.service";
+import { generateContentSafe, safeParseJsonIds } from "./ai.service";
 import { getPersonalizedRecommendations } from "./recommend.service";
 import redis from '../lib/redis';
 export class MoodService {
@@ -94,44 +94,76 @@ export class MoodService {
         };
     }
     static async getMoodSuggestions(userId: string, mood: MoodType, context: any, limit: number = 8) {
+        console.log(`\n--- [MoodService] BẮT ĐẦU TÌM GỢI Ý PHIM ---`);
+        console.log(`User: ${userId} | Mood: ${mood} | Limit: ${limit}`);
+
         const candidateMovies = await getPersonalizedRecommendations(userId, 40);
+        console.log(`[MoodService] Bước 1: Lấy Candidate pool (Recommendations) -> Thu được ${candidateMovies.length} phim.`);
 
         try {
             const prompt = `
       Bạn là chuyên gia gợi ý phim của hệ thống Movix. User hiện đang xem phim vào lúc ${context.hour}h với tâm trạng "${mood}".
       Dữ liệu hành vi gần đây: Hay xem thể loại ${context.topGenres.join(', ')}. Tín hiệu: ${context.signal}.
       
-      Dưới đây là danh sách Candidate Pool (ID và Title):
-      ${JSON.stringify(candidateMovies.map(m => ({ id: m.id, title: m.title })))}
+      Dưới đây là danh sách Candidate Pool (STT | ID | Tên phim):
+      ${candidateMovies.map((m, idx) => `${idx + 1} | ${m.id} | ${m.title}`).join('\n')}
 
       Nhiệm vụ: Chọn ra đúng ${limit} phim phù hợp nhất với tâm trạng và hành vi trên.
-      Chỉ trả về JSON format là một mảng string chứa các ID: ["id1", "id2", ...]. Không trả về text nào khác.
+      Chỉ trả về một mảng JSON chứa các con số STT (Số thứ tự) của phim được chọn, ví dụ: [1, 5, 8]. Không trả về text nào khác.
     `;
+            console.log(`[MoodService] Bước 2: Đang gọi AI (Gemini) để chọn lọc...`);
             const result = await generateContentSafe(prompt);
-            const jsonMatch = result.match(/\[.*\]/s);
+            console.log(`[MoodService] Bước 3: AI phản hồi thành công. Dữ liệu ĐẦY ĐỦ từ AI:\n${result}\n`);
+
+            const jsonMatch = result.match(/\[[\s\S]*\]/);
             if (jsonMatch) {
-                const suggestedIds = JSON.parse(jsonMatch[0]);
-                return await prisma.movie.findMany({
-                    where: { id: { in: suggestedIds } }
-                });
+                try {
+                    const parsedIndices = JSON.parse(jsonMatch[0]);
+                    const suggestedIds = parsedIndices
+                        .map((idx: number) => candidateMovies[idx - 1]?.id)
+                        .filter((id: string | undefined) => !!id);
+
+                    if (suggestedIds && suggestedIds.length > 0) {
+                        console.log(`[MoodService] Bước 4: Parse JSON thành công -> AI đề xuất ${suggestedIds.length} IDs:`, suggestedIds);
+                        const movies = await prisma.movie.findMany({
+                            where: { id: { in: suggestedIds } }
+                        });
+                        console.log(`[MoodService] Bước 5: Truy vấn DB -> Tìm được ${movies.length} phim hợp lệ từ danh sách ID của AI.`);
+                        if (movies.length > 0) {
+                            console.log(`[MoodService] Danh sách phim sẽ trả về:`);
+                            movies.forEach((m, idx) => console.log(`  ${idx + 1}. [${m.id}] - ${m.title}`));
+                            console.log(`--- [MoodService] KẾT THÚC THÀNH CÔNG BẰNG AI ---\n`);
+                            return movies;
+                        } else {
+                            console.log(`[MoodService] LƯU Ý: AI trả về ID nhưng không khớp DB. Chuyển sang Fallback.`);
+                        }
+                    } else {
+                        console.log(`[MoodService] LƯU Ý: Không parse được ID hợp lệ nào từ mảng index. Chuyển sang Fallback.`);
+                    }
+                } catch (e) {
+                    console.log(`[MoodService] LƯU Ý: Parse JSON mảng STT thất bại. Chuyển sang Fallback.`);
+                }
+            } else {
+                console.log(`[MoodService] LƯU Ý: Không trích xuất được mảng JSON/UUID hợp lệ từ câu trả lời AI. Chuyển sang Fallback.`);
             }
+        } catch (error) {
+            console.error("[MoodService] LỖI EXCEPTION: Quá trình gọi AI hoặc parse JSON bị lỗi!", error);
         }
 
-        catch (error) {
-            console.error("Error in getMoodSuggestions:", error);
-            return [];
-        }
-        return this.getRuleSuggestions(mood, limit);
+        console.log(`[MoodService] Bước 6: Đang sử dụng phương pháp Fallback (Rule-based) cho mood: ${mood}`);
+        const fallbackMovies = await this.getRuleSuggestions(mood, limit);
+        fallbackMovies.forEach((m, idx) => console.log(`  ${idx + 1}. [${m.id}] - ${m.title}`));
 
+        return fallbackMovies;
     }
     static async getRuleSuggestions(mood: MoodType, limit: number) {
         let targetGenres: string[] = [];
         switch (mood) {
-            case 'EVENING_RELAX': targetGenres = ['Romance', 'Comedy', 'Family']; break;
-            case 'LATE_NIGHT_THRILLER': targetGenres = ['Horror', 'Thriller', 'Mystery']; break;
-            case 'AFTERNOON_FOCUS': targetGenres = ['Documentary', 'Drama']; break;
-            case 'MORNING_CASUAL': targetGenres = ['Animation', 'Comedy']; break;
-            default: targetGenres = ['Action', 'Adventure'];
+            case 'EVENING_RELAX': targetGenres = ['Lãng mạn', 'Lãng Mạn', 'Phim Lãng Mạn', 'Hài', 'Phim Hài', 'Gia đình', 'Phim Gia Đình', 'Gia Đình']; break;
+            case 'LATE_NIGHT_THRILLER': targetGenres = ['Kinh dị', 'Phim Kinh Dị', 'Giật gân', 'Phim Gây Cấn', 'Bí ẩn', 'Phim Bí Ẩn', 'Kì bí']; break;
+            case 'AFTERNOON_FOCUS': targetGenres = ['Tài liệu', 'Chính kịch', 'Phim Chính Kịch', 'Hình Sự', 'Phim Hình Sự', 'Hình sự']; break;
+            case 'MORNING_CASUAL': targetGenres = ['Hoạt hình', 'Phim Hoạt Hình', 'Anime', 'Hài', 'Phim Hài']; break;
+            default: targetGenres = ['Hành động', 'Phim Hành Động', 'Hành Động', 'Action & Adventure', 'Phiêu lưu', 'Phim Phiêu Lưu', 'Phiêu Lưu'];
         }
 
         return await prisma.movie.findMany({

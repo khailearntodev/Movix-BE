@@ -146,7 +146,7 @@ export async function generateContentSafe(prompt: string, maxRetries = 2) {
   throw new Error("Tất cả các model AI đều không phản hồi.");
 }
 
-function safeParseJsonIds(text: string): string[] {
+export function safeParseJsonIds(text: string): string[] {
   const cleaned = text
     .replace(/```json/g, "")
     .replace(/```/g, "")
