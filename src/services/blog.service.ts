@@ -1,5 +1,5 @@
 import { prisma } from '../lib/prisma';
-import { Prisma } from '@prisma/client';
+import { PostStatus, Prisma } from '@prisma/client';
 
 export const createBlogPost = async (data: {
   user_id: string;
@@ -348,6 +348,50 @@ export const getBlogPostBookmarks = async (postId: string) => {
     select: { user_id: true },
   });
 };
+export const getSavedBlogs = async (userId: string, page: number, take: number, search?: string) => {
+  const skip = (page - 1) * take;
+  const where: any = {
+    is_deleted: false,
+    status: PostStatus.PUBLISHED,
+    bookmarks: {
+      some: {
+        user_id: userId,
+      },
+    },
+  }
+  if (search) {
+    where.title = {
+      contains: search,
+      mode: 'insensitive'
+    };
+  }
+
+  const [blogs, total] = await Promise.all([
+    prisma.blogPost.findMany({
+      where,
+      skip: (page - 1) * take,
+      take,
+      include: {
+        user: {
+          select: { id: true, display_name: true, avatar_url: true }
+        },
+        _count: {
+          select: { likes: true, bookmarks: true }
+        }
+      },
+      orderBy: { created_at: 'desc' }
+    }),
+    prisma.blogPost.count({
+      where
+    })
+  ]);
+
+  return {
+    blogs,
+    total,
+    totalPages: Math.ceil(total / take)
+  }
+}
 export const BlogService = {
   createBlogPost,
   getBlogPostById,
