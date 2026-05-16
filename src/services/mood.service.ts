@@ -5,7 +5,7 @@ import { generateContentSafe } from "./ai.service";
 import { getPersonalizedRecommendations } from "./recommend.service";
 import redis from '../lib/redis';
 export class MoodService {
-    static async analyzeTimesContext(hour: number, dayOfWeek: number): Promise<MoodType> {
+    static async analyzeTimeContext(hour: number, dayOfWeek: number): Promise<MoodType> {
         const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
         if (isWeekend) {
             return MoodType.WEEKEND_BINGE;
@@ -46,13 +46,13 @@ export class MoodService {
         });
         const shortWatchCount = recentHistory.filter(h => h.progress_seconds < 1200).length;
         const totalWatched = recentHistory.length;
-        let behavierSignal = '';
+        let behaviorSignal = '';
         if (shortWatchCount > totalWatched * 0.6) {
-            behavierSignal = 'SHORT_ATTENTION';
+            behaviorSignal = 'SHORT_ATTENTION';
         } else if (shortWatchCount > totalWatched * 0.3) {
-            behavierSignal = 'MIXED';
+            behaviorSignal = 'MIXED';
         } else {
-            behavierSignal = 'DEEP_DIVER';
+            behaviorSignal = 'DEEP_DIVER';
         }
         const genreCounts: Record<string, number> = {};
         recentHistory.forEach(h => {
@@ -62,16 +62,16 @@ export class MoodService {
             });
         });
         const favoriteGenre = Object.entries(genreCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || 'Unknown';
-        return { behavierSignal, favoriteGenre };
+        return { behaviorSignal, favoriteGenre };
     }
-    static async resoleveMood(TimeMood: MoodType, userBahaviorSignal: any): Promise<MoodType> {
-        if (userBahaviorSignal == null) {
+    static async resolveMood(TimeMood: MoodType, userBehaviorSignal: any): Promise<MoodType> {
+        if (userBehaviorSignal == null) {
             return TimeMood;
         }
-        if (userBahaviorSignal.behavierSignal === 'SHORT_ATTENTION') {
+        if (userBehaviorSignal.behaviorSignal === 'SHORT_ATTENTION') {
             return MoodType.QUICK_WATCH;
         }
-        if (userBahaviorSignal.behavierSignal === 'DEEP_DIVER' && TimeMood !== MoodType.WEEKEND_BINGE) {
+        if (userBehaviorSignal.behaviorSignal === 'DEEP_DIVER' && TimeMood !== MoodType.WEEKEND_BINGE) {
             return TimeMood;
         }
         return TimeMood;
@@ -80,16 +80,16 @@ export class MoodService {
         const now = new Date();
         const hour = now.getHours();
         const dayOfWeek = now.getDay();
-        const timeMood = await MoodService.analyzeTimesContext(hour, dayOfWeek);
+        const timeMood = await MoodService.analyzeTimeContext(hour, dayOfWeek);
         const userBehaviorSignal = await MoodService.analyzeUserBehavior(userId);
-        const finalMood = await MoodService.resoleveMood(timeMood, userBehaviorSignal);
+        const finalMood = await MoodService.resolveMood(timeMood, userBehaviorSignal);
         return {
             mood: finalMood,
             context: {
                 hour,
                 dayOfWeek,
-                topGenres: userBehaviorSignal?.favoriteGenre || [],
-                signal: userBehaviorSignal?.behavierSignal || 'COLD_START',
+                topGenres: userBehaviorSignal?.favoriteGenre ? [userBehaviorSignal.favoriteGenre] : [],
+                signal: userBehaviorSignal?.behaviorSignal || 'COLD_START',
             }
         };
     }
