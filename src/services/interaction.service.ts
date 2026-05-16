@@ -1,4 +1,5 @@
 import { prisma } from '../lib/prisma';
+import { MoodType } from '@prisma/client';
 import { gamificationEmitter } from '../events/gamification.events';
 
 
@@ -357,4 +358,37 @@ export const getMovieRatings = async (movieId: string, page: number = 1, limit: 
       totalPages: Math.ceil(total / limit),
     },
   };
+};
+
+export const createMoodPlaylist = async (userId: string, mood: MoodType, movieIds: string[]) => {
+  const moodNames: Record<MoodType, string> = {
+    MORNING_CASUAL: "🌅 Gợi ý cho buổi sáng",
+    AFTERNOON_FOCUS: "☕ Gợi ý cho buổi trưa",
+    EVENING_RELAX: "🌙 Gợi ý cho buổi tối",
+    LATE_NIGHT_THRILLER: "🦉 Gợi ý đêm khuya",
+    WEEKEND_BINGE: "🍿 Gợi ý cuối tuần",
+    QUICK_WATCH: "⚡ Xem nhanh giải trí"
+  };
+
+  // Delete old mood playlist for this mood
+  await prisma.playlist.updateMany({
+    where: { user_id: userId, mood: mood, is_mood_based: true, is_deleted: false },
+    data: { is_deleted: true }
+  });
+
+  const playlistName = moodNames[mood] || "🎭 Gợi ý phim";
+
+  const playlist = await prisma.playlist.create({
+    data: {
+      user_id: userId,
+      name: playlistName,
+      is_mood_based: true,
+      mood: mood,
+      playlist_movies: {
+        create: movieIds.map(id => ({ movie_id: id }))
+      }
+    }
+  });
+
+  return playlist;
 };

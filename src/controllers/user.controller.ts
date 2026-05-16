@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import * as userService from '../services/user.service';
 import * as subscriptionService from '../services/subscription.service';
 import { getSystemRanks } from '../services/admin.gamification.service';
+import { prisma } from '../lib/prisma';
 
 export const getMyProfile = async (req: Request, res: Response) => {
   try {
@@ -157,4 +158,75 @@ export const getMyRefundRequests = async (req: Request, res: Response) => {
     return res.status(500).json({
       message: 'Lỗi máy chủ nội bộ.',
     });
-  }};
+  }
+};
+
+export const getOnboardingData = async (req: Request, res: Response) => {
+  try {
+    const data = await userService.getOnboardingData();
+    return res.status(200).json(data);
+  } catch (error) {
+    console.error('[Onboarding] Lỗi lấy dữ liệu onboarding:', error);
+    return res.status(500).json({ message: 'Lỗi máy chủ nội bộ.' });
+  }
+};
+
+
+export const saveOnboarding = async (req: Request, res: Response) => {
+  try {
+    const userId = req.userId;
+    if (!userId) {
+      return res.status(401).json({ message: 'Chưa xác thực.' });
+    }
+
+    const { 
+      fav_genres, 
+      seed_movie_ids,
+      vibes,
+      favorite_character_types,
+      exploration_level,
+      content_to_avoid
+    } = req.body as {
+      fav_genres?: string[];
+      seed_movie_ids?: string[];
+      vibes?: string[];
+      favorite_character_types?: string[];
+      exploration_level?: number;
+      content_to_avoid?: string[];
+    };
+
+    if (!fav_genres && !seed_movie_ids && !vibes && !favorite_character_types) {
+      return res.status(400).json({
+        message: 'Vui lòng cung cấp thông tin sở thích.',
+      });
+    }
+
+    const updatedPrefs = await userService.saveOnboardingData(
+      userId, 
+      fav_genres, 
+      seed_movie_ids,
+      {
+        vibes,
+        favorite_character_types,
+        exploration_level,
+        content_to_avoid
+      }
+    );
+
+    return res.status(200).json({
+      message: 'Lưu thông tin sở thích thành công.',
+      data: updatedPrefs,
+    });
+  } catch (error: any) {
+    console.error('[Onboarding] Error:', error);
+    
+    if (error.message === 'INVALID_MOVIE_IDS') {
+      return res.status(400).json({ message: 'Một số movie ID không hợp lệ.' });
+    }
+    if (error.message === 'USER_NOT_FOUND') {
+      return res.status(404).json({ message: 'Không tìm thấy người dùng.' });
+    }
+    
+    return res.status(500).json({ message: 'Lỗi máy chủ nội bộ.' });
+  }
+};

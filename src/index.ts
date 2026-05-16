@@ -37,7 +37,9 @@ import adminGamificationRoutes from './routes/admin.gamification.routes';
 import userGamificationRoutes from './routes/user.gamification.routes';
 import blogRoutes from './routes/blog.routes';
 import followRoutes from './routes/follow.routes';
-import { setupNotificationWorker, notificationQueue } from './services/notification.worker.service';
+import moodRoutes from './routes/mood.routes';
+import { notificationWorker, notificationQueue } from './services/notification.worker.service';
+import { setupNotificationWorker } from './services/notification.worker.service';
 
 setupNotificationWorker();
 
@@ -96,6 +98,7 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/admin/reports', adminReportRoutes);
 app.use('/api/blogs', blogRoutes);
 app.use('/api/admin/blogs', adminBlogRoutes);
+app.use('/api/mood', moodRoutes);
 app.get('/api', (req, res) => {
   res.send('Movix BE is running!');
 });

@@ -105,6 +105,15 @@ enum DownloadStatus {
   REMOVED
 }
 
+enum MoodType {
+  MORNING_CASUAL
+  AFTERNOON_FOCUS
+  EVENING_RELAX
+  LATE_NIGHT_THRILLER
+  WEEKEND_BINGE
+  QUICK_WATCH
+}
+
 // ==================== CORE MODELS ====================
 
 model Role {
@@ -174,6 +183,7 @@ model User {
   ai_memory         UserAiMemory?
   offline_downloads OfflineDownload[]
   refund_requests   RefundRequest[]
+  mood_sessions     UserMoodSession[]
 }
 
 model RefreshToken {
@@ -410,14 +420,18 @@ model Favourite {
 }
 
 model Playlist {
-  id          String   @id @default(uuid()) @db.Uuid
-  user_id     String   @db.Uuid
-  name        String
-  description String?
-  created_at  DateTime @default(now())
-  updated_at  DateTime @updatedAt
-  is_deleted  Boolean  @default(false)
-  is_public   Boolean  @default(false)
+  id            String    @id @default(uuid()) @db.Uuid
+  user_id       String    @db.Uuid
+  name          String
+  description   String?
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
+  is_deleted    Boolean   @default(false)
+  is_public     Boolean   @default(false)
+
+  // --- [MOOD-BASED] ---
+  is_mood_based Boolean   @default(false)
+  mood          MoodType?
 
   user            User            @relation(fields: [user_id], references: [id], onDelete: Cascade)
   playlist_movies PlaylistMovie[]
@@ -810,4 +824,19 @@ model UserAiMemory {
   raw_data   Json?    // Dữ liệu chi tiết dạng JSON phân tích được
   updated_at DateTime @updatedAt
   user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+}
+
+// --- [MOOD-BASED SUGGESTION] ---
+model UserMoodSession {
+  id           String   @id @default(uuid()) @db.Uuid
+  user_id      String   @db.Uuid
+  mood         MoodType
+  context_hour Int      // Giờ detect mood (0-23)
+  context_day  Int      // Ngày trong tuần (0=Sun, 6=Sat)
+  genre_ids    String[] // Top genres từ hành vi user
+  playlist_id  String?  @db.Uuid // Playlist được tạo từ mood session này
+  created_at   DateTime @default(now())
+  expires_at   DateTime // TTL: 6 giờ
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
 }

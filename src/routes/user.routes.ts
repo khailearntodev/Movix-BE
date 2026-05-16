@@ -13,8 +13,10 @@ router.post('/me/subscription/refund-request', userController.requestMySubscript
 router.get('/me/refund-requests', userController.getMyRefundRequests);
 router.put('/me', userController.updateMyProfile);
 router.post('/change-password', userController.changeMyPassword);
+router.get('/onboarding/data', userController.getOnboardingData); 
+router.post('/onboarding', userController.saveOnboarding); 
 
-router.get('/admin/users', adminUserController.getUsers); 
+router.get('/admin/users', adminUserController.getUsers);
 router.get('/admin/users/:id', adminUserController.getUserDetail);
 router.put('/admin/users/:id/status', adminUserController.updateUserStatus);
 router.put('/admin/users/:id/flag', adminUserController.toggleFlag);
