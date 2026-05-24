@@ -11,6 +11,10 @@ export const followController = {
             if (followerId === followingId) {
                 return res.status(400).json({ error: "You cannot follow yourself." });
             }
+            const isFollowing = await FollowService.isFollowing(followerId, followingId);
+            if (isFollowing) {
+                return res.status(400).json({ error: "You are already following this user." });
+            }
             const follow = await FollowService.followUser(followerId, followingId);
             res.status(201).json(follow);
         } catch (error) {
@@ -24,6 +28,10 @@ export const followController = {
             const followerId = req.userId!;
             if (followerId === followingId) {
                 return res.status(400).json({ error: "You cannot unfollow yourself." });
+            }
+            const isFollowing = await FollowService.isFollowing(followerId, followingId);
+            if (!isFollowing) {
+                return res.status(400).json({ error: "You are not following this user." });
             }
             await FollowService.unFollowUser(followerId, followingId);
             res.status(204).send();
