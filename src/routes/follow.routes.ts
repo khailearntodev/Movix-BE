@@ -17,4 +17,7 @@ router.get('/followings', followController.getMyFollowings);
 // GET /api/follow/followers
 router.get('/followers', followController.getMyFollowers);
 
+// GET /api/follow/is-following/:followingId
+router.get('/is-following/:followingId', followController.isFollowing);
+
 export default router;

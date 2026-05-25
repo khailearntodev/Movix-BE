@@ -1,6 +1,93 @@
 import { prisma } from '../lib/prisma';
 import { PostStatus, Prisma } from '@prisma/client';
 
+const visibleCommentWhere = {
+  is_deleted: false,
+  is_hidden: false,
+};
+
+const getEngagementCounts = async (postId: string) => {
+  const [likes, comments, bookmarks] = await Promise.all([
+    prisma.blogLike.count({ where: { post_id: postId } }),
+    prisma.comment.count({
+      where: {
+        post_id: postId,
+        ...visibleCommentWhere,
+      },
+    }),
+    prisma.blogBookmark.count({ where: { post_id: postId } }),
+  ]);
+
+  return { likes, comments, bookmarks };
+};
+
+const createBlogInclude = (currentUserId?: string) => ({
+  user: {
+    select: {
+      id: true,
+      display_name: true,
+      avatar_url: true,
+      username: true,
+    },
+  },
+  movie: {
+    select: {
+      id: true,
+      title: true,
+      poster_url: true,
+      slug: true,
+    },
+  },
+  ...(currentUserId
+    ? {
+        likes: {
+          where: { user_id: currentUserId },
+          select: { user_id: true },
+        },
+        bookmarks: {
+          where: { user_id: currentUserId },
+          select: { user_id: true },
+        },
+      }
+    : {}),
+  _count: {
+    select: {
+      likes: true,
+      comments: {
+        where: visibleCommentWhere,
+      },
+      bookmarks: true,
+    },
+  },
+});
+
+const normalizeBlogPost = <T extends Record<string, any>>(post: T, currentUserId?: string) => {
+  const count = post._count || {};
+  const likes = post.likes || [];
+  const bookmarks = post.bookmarks || [];
+  const likeCount = Number(count.likes || 0);
+  const commentCount = Number(count.comments || 0);
+  const bookmarkCount = Number(count.bookmarks || 0);
+
+  return {
+    ...post,
+    likes,
+    bookmarks,
+    _count: {
+      likes: likeCount,
+      comments: commentCount,
+      bookmarks: bookmarkCount,
+    },
+    like_count: likeCount,
+    comment_count: commentCount,
+    bookmark_count: bookmarkCount,
+    is_liked: currentUserId ? likes.some((like: { user_id: string }) => like.user_id === currentUserId) : false,
+    is_bookmarked: currentUserId
+      ? bookmarks.some((bookmark: { user_id: string }) => bookmark.user_id === currentUserId)
+      : false,
+  };
+};
+
 export const createBlogPost = async (data: {
   user_id: string;
   title: string;
@@ -45,82 +132,40 @@ export const createBlogPost = async (data: {
   });
 };
 
-export const getBlogPostById = async (id: string) => {
+export const getBlogPostById = async (id: string, currentUserId?: string, incrementView = true) => {
   const post = await prisma.blogPost.findUnique({
     where: { id },
-    include: {
-      user: {
-        select: {
-          id: true,
-          display_name: true,
-          avatar_url: true,
-          username: true,
-        },
-      },
-      movie: {
-        select: {
-          id: true,
-          title: true,
-          poster_url: true,
-          slug: true,
-        },
-      },
-      likes: {
-        select: { user_id: true },
-      },
-      bookmarks: {
-        select: { user_id: true },
-      },
-    },
+    include: createBlogInclude(currentUserId),
   });
 
-  if (post) {
-    await prisma.blogPost.update({
+  if (post && incrementView) {
+    const updatedPost = await prisma.blogPost.update({
       where: { id },
       data: { view_count: { increment: 1 } },
+      select: { view_count: true },
     });
+    post.view_count = updatedPost.view_count;
   }
 
-  return post;
+  return post ? normalizeBlogPost(post, currentUserId) : null;
 };
 
-export const getBlogPostBySlug = async (slug: string) => {
+export const getBlogPostBySlug = async (slug: string, currentUserId?: string, incrementView = true) => {
   const post = await prisma.blogPost.findUnique({
     where: { slug },
-    include: {
-      user: {
-        select: {
-          id: true,
-          display_name: true,
-          avatar_url: true,
-          username: true,
-        },
-      },
-      movie: {
-        select: {
-          id: true,
-          title: true,
-          poster_url: true,
-          slug: true,
-        },
-      },
-      likes: {
-        select: { user_id: true },
-      },
-      bookmarks: {
-        select: { user_id: true },
-      },
-    },
+    include: createBlogInclude(currentUserId),
   });
 
-  if (post) {
-    await prisma.blogPost.update({
+  if (post && incrementView) {
+    const updatedPost = await prisma.blogPost.update({
       where: { slug },
       data: { view_count: { increment: 1 } },
+      select: { view_count: true },
     });
+    post.view_count = updatedPost.view_count;
   }
 
-  return post;
+  return post ? normalizeBlogPost(post, currentUserId) : null;
 };
 
 export const getAllBlogPosts = async (
@@ -132,7 +177,8 @@ export const getAllBlogPosts = async (
     userId?: string;
     isSpoiler?: boolean;
     search?: string;
-  }
+  },
+  currentUserId?: string
 ) => {
   const skip = (page - 1) * limit;
 
@@ -163,29 +209,7 @@ export const getAllBlogPosts = async (
   const [posts, total] = await Promise.all([
     prisma.blogPost.findMany({
       where,
-      include: {
-        user: {
-          select: {
-            id: true,
-            display_name: true,
-            avatar_url: true,
-          },
-        },
-        movie: {
-          select: {
-            id: true,
-            title: true,
-            poster_url: true,
-            slug: true,
-          },
-        },
-        _count: {
-          select: {
-            likes: true,
-            bookmarks: true,
-          },
-        },
-      },
+      include: createBlogInclude(currentUserId),
       orderBy: {
         created_at: 'desc',
       },
@@ -196,7 +220,7 @@ export const getAllBlogPosts = async (
   ]);
 
   return {
-    data: posts,
+    data: posts.map((post) => normalizeBlogPost(post, currentUserId)),
     total,
     page,
     limit,
@@ -208,7 +232,8 @@ export const getUserBlogPosts = async (
   userId: string,
   page: number = 1,
   limit: number = 10,
-  includePrivate: boolean = false
+  includePrivate: boolean = false,
+  currentUserId?: string
 ) => {
   const skip = (page - 1) * limit;
 
@@ -220,22 +245,7 @@ export const getUserBlogPosts = async (
   const [posts, total] = await Promise.all([
     prisma.blogPost.findMany({
       where,
-      include: {
-        movie: {
-          select: {
-            id: true,
-            title: true,
-            poster_url: true,
-            slug: true,
-          },
-        },
-        _count: {
-          select: {
-            likes: true,
-            bookmarks: true,
-          },
-        },
-      },
+      include: createBlogInclude(currentUserId),
       orderBy: {
         created_at: 'desc',
       },
@@ -246,7 +256,7 @@ export const getUserBlogPosts = async (
   ]);
 
   return {
-    data: posts,
+    data: posts.map((post) => normalizeBlogPost(post, currentUserId)),
     total,
     page,
     limit,
@@ -294,7 +304,7 @@ export const toggleLikeBlogPost = async (postId: string, userId: string) => {
     },
   });
   if (existingLike) {
-    return prisma.blogLike.delete({
+    await prisma.blogLike.delete({
       where: {
         user_id_post_id: {
           post_id: postId,
@@ -302,13 +312,29 @@ export const toggleLikeBlogPost = async (postId: string, userId: string) => {
         },
       },
     });
+    const counts = await getEngagementCounts(postId);
+    return {
+      liked: false,
+      like_count: counts.likes,
+      comment_count: counts.comments,
+      bookmark_count: counts.bookmarks,
+      _count: counts,
+    };
   }
-  return prisma.blogLike.create({
+  await prisma.blogLike.create({
     data: {
       post_id: postId,
       user_id: userId,
     },
   });
+  const counts = await getEngagementCounts(postId);
+  return {
+    liked: true,
+    like_count: counts.likes,
+    comment_count: counts.comments,
+    bookmark_count: counts.bookmarks,
+    _count: counts,
+  };
 };
 export const getBlogPostLikes = async (postId: string) => {
   return prisma.blogLike.findMany({
@@ -326,7 +352,7 @@ export const toggleBookmarkBlogPost = async (postId: string, userId: string) => 
     },
   });
   if (existingBookmark) {
-    return prisma.blogBookmark.delete({
+    await prisma.blogBookmark.delete({
       where: {
         user_id_post_id: {
           post_id: postId,
@@ -334,13 +360,29 @@ export const toggleBookmarkBlogPost = async (postId: string, userId: string) => 
         },
       },
     });
+    const counts = await getEngagementCounts(postId);
+    return {
+      bookmarked: false,
+      like_count: counts.likes,
+      comment_count: counts.comments,
+      bookmark_count: counts.bookmarks,
+      _count: counts,
+    };
   }
-  return prisma.blogBookmark.create({
+  await prisma.blogBookmark.create({
     data: {
       post_id: postId,
       user_id: userId,
     },
   });
+  const counts = await getEngagementCounts(postId);
+  return {
+    bookmarked: true,
+    like_count: counts.likes,
+    comment_count: counts.comments,
+    bookmark_count: counts.bookmarks,
+    _count: counts,
+  };
 };
 export const getBlogPostBookmarks = async (postId: string) => {
   return prisma.blogBookmark.findMany({
@@ -371,14 +413,7 @@ export const getSavedBlogs = async (userId: string, page: number, take: number, 
       where,
       skip: (page - 1) * take,
       take,
-      include: {
-        user: {
-          select: { id: true, display_name: true, avatar_url: true }
-        },
-        _count: {
-          select: { likes: true, bookmarks: true }
-        }
-      },
+      include: createBlogInclude(userId),
       orderBy: { created_at: 'desc' }
     }),
     prisma.blogPost.count({
@@ -387,8 +422,10 @@ export const getSavedBlogs = async (userId: string, page: number, take: number, 
   ]);
 
   return {
-    blogs,
+    blogs: blogs.map((blog) => normalizeBlogPost(blog, userId)),
     total,
+    page,
+    limit: take,
     totalPages: Math.ceil(total / take)
   }
 }

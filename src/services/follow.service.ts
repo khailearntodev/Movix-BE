@@ -1,5 +1,19 @@
-import { get } from 'http';
 import { prisma } from '../lib/prisma';
+
+const userSelect = {
+    id: true,
+    email: true,
+    username: true,
+    display_name: true,
+    avatar_url: true,
+    gender: true,
+    role: {
+        select: {
+            name: true
+        }
+    },
+    preferences: true
+};
 
 export const FollowService = {
     followUser: async (followerId: string, followingId: string) => {
@@ -21,37 +35,30 @@ export const FollowService = {
         });
     },
     getMyFollowings: async (useId: string) => {
-        return prisma.userFollow.findMany({
+        const followings = await prisma.userFollow.findMany({
             where: {
                 follower_id: useId
             },
             include: {
                 following: {
-                    select: {
-                        id: true,
-                        username: true,
-                        avatar_url: true
-                    }
+                    select: userSelect
                 }
             }
         });
+        return followings.map((follow) => follow.following);
     },
     getMyFollowers: async (useId: string) => {
-        return prisma.userFollow.findMany({
+        const followers = await prisma.userFollow.findMany({
             where: {
                 following_id: useId
             },
             include: {
                 follower: {
-
-                    select: {
-                        id: true,
-                        username: true,
-                        avatar_url: true
-                    }
+                    select: userSelect
                 }
             }
         });
+        return followers.map((follow) => follow.follower);
     },
     isFollowing: async (followerId: string, followingId: string) => {
         const follow = await prisma.userFollow.findUnique({

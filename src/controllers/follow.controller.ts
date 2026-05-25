@@ -1,7 +1,5 @@
 import { Request, Response } from 'express';
-import { prisma } from "../lib/prisma";
 import { FollowService } from '../services/follow.service';
-import { get } from 'http';
 
 export const followController = {
     followUser: async (req: Request, res: Response) => {
@@ -10,6 +8,10 @@ export const followController = {
             const followerId = req.userId!;
             if (followerId === followingId) {
                 return res.status(400).json({ error: "You cannot follow yourself." });
+            }
+            const isFollowing = await FollowService.isFollowing(followerId, followingId);
+            if (isFollowing) {
+                return res.status(400).json({ error: "You are already following this user." });
             }
             const follow = await FollowService.followUser(followerId, followingId);
             res.status(201).json(follow);
@@ -24,6 +26,10 @@ export const followController = {
             const followerId = req.userId!;
             if (followerId === followingId) {
                 return res.status(400).json({ error: "You cannot unfollow yourself." });
+            }
+            const isFollowing = await FollowService.isFollowing(followerId, followingId);
+            if (!isFollowing) {
+                return res.status(400).json({ error: "You are not following this user." });
             }
             await FollowService.unFollowUser(followerId, followingId);
             res.status(204).send();
