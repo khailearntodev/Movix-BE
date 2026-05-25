@@ -56,7 +56,7 @@ export const blogController = {
     try {
       const { id } = req.params;
 
-      const post = await blogService.getBlogPostById(id);
+      const post = await blogService.getBlogPostById(id, req.userId);
 
       if (!post) {
         return res.status(404).json({ message: 'Bài viết không tồn tại' });
@@ -75,7 +75,7 @@ export const blogController = {
     try {
       const { slug } = req.params;
 
-      const post = await blogService.getBlogPostBySlug(slug);
+      const post = await blogService.getBlogPostBySlug(slug, req.userId);
 
       if (!post) {
         return res.status(404).json({ message: 'Bài viết không tồn tại' });
@@ -102,7 +102,8 @@ export const blogController = {
           userId: userId as string,
           isSpoiler: isSpoiler === 'true' ? true : isSpoiler === 'false' ? false : undefined,
           search: search as string,
-        }
+        },
+        req.userId
       );
 
       res.status(200).json({
@@ -124,7 +125,7 @@ export const blogController = {
     try {
       const { userId } = req.params;
       const { page = 1, limit = 10 } = req.query;
-      const currentUserId = getUserId(req);
+      const currentUserId = req.userId;
 
       const includePrivate = currentUserId === userId;
 
@@ -132,7 +133,8 @@ export const blogController = {
         userId,
         parseInt(page as string) || 1,
         parseInt(limit as string) || 10,
-        includePrivate
+        includePrivate,
+        currentUserId
       );
 
       res.status(200).json({
@@ -154,7 +156,7 @@ export const blogController = {
     try {
       const { id } = req.params;
       const userId = getUserId(req);
-      const post = await blogService.getBlogPostById(id);
+      const post = await blogService.getBlogPostById(id, userId, false);
 
       if (!post) {
         return res.status(404).json({ message: 'Bài viết không tồn tại' });
@@ -207,7 +209,7 @@ export const blogController = {
     try {
       const { id } = req.params;
       const userId = getUserId(req);
-      const post = await blogService.getBlogPostById(id);
+      const post = await blogService.getBlogPostById(id, userId, false);
 
       if (!post) {
         return res.status(404).json({ message: 'Bài viết không tồn tại' });
@@ -231,7 +233,7 @@ export const blogController = {
       const { id } = req.params;
       const userId = getUserId(req);
 
-      const post = await blogService.getBlogPostById(id);
+      const post = await blogService.getBlogPostById(id, userId, false);
       if (!post) {
         return res.status(404).json({ message: 'Bài viết không tồn tại' });
       }
@@ -249,7 +251,7 @@ export const blogController = {
       const { id } = req.params;
       const userId = getUserId(req);
 
-      const post = await blogService.getBlogPostById(id);
+      const post = await blogService.getBlogPostById(id, userId, false);
       if (!post) {
         return res.status(404).json({ message: 'Bài viết không tồn tại' });
       }

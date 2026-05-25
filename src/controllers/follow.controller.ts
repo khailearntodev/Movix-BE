@@ -1,7 +1,5 @@
 import { Request, Response } from 'express';
-import { prisma } from "../lib/prisma";
 import { FollowService } from '../services/follow.service';
-import { get } from 'http';
 
 export const followController = {
     followUser: async (req: Request, res: Response) => {

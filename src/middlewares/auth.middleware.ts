@@ -86,3 +86,31 @@ export const authenticateToken = async (
     return res.status(401).json({ message: 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.' });
   }
 };
+
+export const optionalAuthenticateToken = (
+  req: Request,
+  _res: Response,
+  next: NextFunction,
+) => {
+  let token = req.cookies.accessToken;
+
+  if (!token && req.headers.authorization) {
+    const authHeader = req.headers.authorization;
+    if (authHeader.startsWith('Bearer ')) {
+      token = authHeader.substring(7, authHeader.length);
+    }
+  }
+
+  if (!token) {
+    return next();
+  }
+
+  try {
+    const payload = jwt.verify(token, JWT_SECRET) as { userId: string };
+    req.userId = payload.userId;
+  } catch {
+    req.userId = undefined;
+  }
+
+  next();
+};

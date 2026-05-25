@@ -1,21 +1,21 @@
 import express from 'express';
 import { blogController } from '../controllers/blog.controller';
-import { authenticateToken } from '../middlewares/auth.middleware';
+import { authenticateToken, optionalAuthenticateToken } from '../middlewares/auth.middleware';
 import uploadCloud from '../config/cloudinary.config';
 
 const router = express.Router();
 
 // GET /api/blogs 
-router.get('/', blogController.getAllPosts);
+router.get('/', optionalAuthenticateToken, blogController.getAllPosts);
 
 // GET /api/blogs/:id 
-router.get('/id/:id', blogController.getPostById);
+router.get('/id/:id', optionalAuthenticateToken, blogController.getPostById);
 
 // GET /api/blogs/slug/:slug 
-router.get('/slug/:slug', blogController.getPostBySlug);
+router.get('/slug/:slug', optionalAuthenticateToken, blogController.getPostBySlug);
 
 // GET /api/blogs/user/:userId 
-router.get('/user/:userId', blogController.getUserPosts);
+router.get('/user/:userId', optionalAuthenticateToken, blogController.getUserPosts);
 
 router.use(authenticateToken);
 
