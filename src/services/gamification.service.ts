@@ -26,6 +26,14 @@ export const checkAndUnlockAchievements = async (userId: string) => {
     let totalRewardXp = 0;
     const newlyUnlocked = [];
 
+    const hasTotalCommentsAchievement = activeAchievements.some(a => a.condition_type === "TOTAL_COMMENTS");
+    let userCommentCount = 0;
+    if (hasTotalCommentsAchievement) {
+      userCommentCount = await prisma.comment.count({
+        where: { user_id: userId, is_deleted: false }
+      });
+    }
+
     for (const achievement of activeAchievements) {
       if (unlockedAchievementIds.has(achievement.id)) continue;
 
@@ -36,6 +44,10 @@ export const checkAndUnlockAchievements = async (userId: string) => {
         }
       } else if (achievement.condition_type === "TOTAL_WATCH_TIME" || achievement.condition_type === "WATCH_TIME") {
         if (user.total_watch_time >= achievement.condition_value) {
+          isUnlocked = true;
+        }
+      } else if (achievement.condition_type === "TOTAL_COMMENTS") {
+        if (userCommentCount >= achievement.condition_value) {
           isUnlocked = true;
         }
       }
