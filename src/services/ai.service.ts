@@ -245,6 +245,8 @@ export const chatWithAI = async (userId: string, userMessage: string) => {
       ? `THÔNG TIN SỞ THÍCH CỦA USER NÀY: ${userMemory.summary}`
       : "";
 
+    console.log("[Long Term Memory Log]:", memoryContext || "Không có dữ liệu Long Term Memory cho user này.");
+
     //truy xuất ngữ cảnh mới từ câu hỏi
     const relevantMovies = await searchMoviesByAI(userMessage, 5);
 
