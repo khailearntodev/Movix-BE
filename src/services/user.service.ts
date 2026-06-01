@@ -257,5 +257,44 @@ export const saveOnboardingData = async (
     data: { preferences: updatedPrefs },
   });
 
+  let summaryParts: string[] = [];
+  if (fav_genres && fav_genres.length > 0) {
+    const genres = await prisma.genre.findMany({
+      where: { id: { in: fav_genres } },
+      select: { name: true },
+    });
+    const genreNames = genres.map((g) => g.name).join(', ');
+    summaryParts.push(`Thể loại yêu thích: ${genreNames}`);
+  }
+
+  if (additional_prefs.vibes && additional_prefs.vibes.length > 0) {
+    summaryParts.push(`Cảm giác/Mood yêu thích: ${additional_prefs.vibes.join(', ')}`);
+  }
+
+  if (additional_prefs.favorite_character_types && additional_prefs.favorite_character_types.length > 0) {
+    summaryParts.push(`Kiểu nhân vật yêu thích: ${additional_prefs.favorite_character_types.join(', ')}`);
+  }
+
+  if (additional_prefs.content_to_avoid && additional_prefs.content_to_avoid.length > 0) {
+    summaryParts.push(`Các nội dung muốn tránh: ${additional_prefs.content_to_avoid.join(', ')}`);
+  }
+
+  const memorySummary = summaryParts.length > 0 
+    ? summaryParts.join('. ') 
+    : 'Người dùng chưa cung cấp chi tiết sở thích qua Onboarding.';
+
+  await prisma.userAiMemory.upsert({
+    where: { user_id: userId },
+    update: {
+      summary: memorySummary,
+      raw_data: updatedPrefs,
+    },
+    create: {
+      user_id: userId,
+      summary: memorySummary,
+      raw_data: updatedPrefs,
+    },
+  });
+
   return updatedPrefs;
 };

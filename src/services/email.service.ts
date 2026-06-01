@@ -86,7 +86,7 @@ export const sendVerificationEmail = async (
         <td align="center">
           <table class="container" role="presentation" cellpadding="0" cellspacing="0" width="600" style="max-width:600px;background-color:#222222;border-radius:8px;overflow:hidden;">
             ${
-              `<tr><td class="banner"><img src="${escapeHtml(bannerUrl)}" alt="Movix Banner" style="width:100%;height:auto;display:block;" /></td></tr>`
+              bannerUrl ? `<tr><td class="banner"><img src="${escapeHtml(bannerUrl)}" alt="Movix Banner" style="width:100%;height:auto;display:block;" /></td></tr>` : ''
             }
             <tr>
               <td class="header" style="padding:20px 24px;border-bottom:1px solid #333;display:flex;align-items:center;gap:12px;">
@@ -218,7 +218,7 @@ export const sendPasswordResetEmail = async (
         <td align="center">
           <table class="container" role="presentation" cellpadding="0" cellspacing="0" width="600" style="max-width:600px;background-color:#222222;border-radius:8px;overflow:hidden;">
             ${
-              `<tr><td class="banner"><img src="${escapeHtml(bannerUrl)}" alt="Movix Banner" style="width:100%;height:auto;display:block;" /></td></tr>`
+              bannerUrl ? `<tr><td class="banner"><img src="${escapeHtml(bannerUrl)}" alt="Movix Banner" style="width:100%;height:auto;display:block;" /></td></tr>` : ''
             }
             <tr>
               <td class="header" style="padding:20px 24px;border-bottom:1px solid #333;display:flex;align-items:center;gap:12px;">
