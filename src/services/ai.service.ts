@@ -196,7 +196,16 @@ export const chatWithAI = async (userId: string, userMessage: string) => {
   try {
     //lấy ls chat của user
     const rawHistory = await prisma.chatbotLog.findMany({
-      where: { user_id: userId },
+      where: {
+        user_id: userId,
+        NOT: {
+          OR: [
+            { user_message: { startsWith: "[Text Search]" } },
+            { user_message: { startsWith: "[Voice Search]" } },
+            { user_message: { startsWith: "[Image Search]" } },
+          ],
+        },
+      },
       orderBy: { created_at: "desc" },
       take: 10,
     });
