@@ -1,16 +1,13 @@
 import { prisma } from '../lib/prisma';
 import { DownloadStatus } from '@prisma/client';
+import { getUserSubscription } from './subscription.service';
 
 export class DownloadService {
   static MAX_DOWNLOADS = 50;
 
   static async requestDownload(userId: string, deviceId: string, episodeId: string) {
-    const canDownLoad= await prisma.userSubscription.findUnique({
-        where: { user_id: userId },
-        include: {
-            plan: true,
-        },
-    });
+    const canDownLoad = await getUserSubscription(userId);
+
     if (!canDownLoad || canDownLoad.status !== 'ACTIVE') {
       throw new Error('Bạn cần có gói đăng ký hoạt động để tải phim offline.');
     }

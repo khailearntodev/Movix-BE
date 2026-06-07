@@ -3,6 +3,7 @@ import { Server as HTTPServer } from "http";
 import jwt from "jsonwebtoken";
 import { PrismaClient } from "@prisma/client";
 import { checkToxicity } from "./perspective.service";
+import { getUserSubscription } from "./subscription.service";
 
 export class WebSocketService {
   private io: SocketIOServer;
@@ -417,10 +418,7 @@ export class WebSocketService {
 
       if (!(await this.verifyHost(roomId, requesterId))) return;
 
-      const hostSub = await this.prisma.userSubscription.findUnique({
-        where: { user_id: requesterId },
-        include: { plan: true },
-      });
+      const hostSub = await getUserSubscription(requesterId);
 
       const canKick =
         hostSub?.status === "ACTIVE" && hostSub.plan?.can_kick_mute_members;
