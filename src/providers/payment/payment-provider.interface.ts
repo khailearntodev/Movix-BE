@@ -23,6 +23,7 @@ export interface IPaymentProvider {
     amount: number,
     planName: string,
     orderCode: number,
+    clientIp?: string,
   ): Promise<PaymentCreateResult>;
   
   verifyWebhook(webhookBody: any): Promise<WebhookResult> | WebhookResult;

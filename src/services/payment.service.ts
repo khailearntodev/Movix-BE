@@ -3,7 +3,7 @@ import { prisma } from "../lib/prisma";
 import { PaymentFactory } from "../factories/payment.factory";
 
 export class PaymentService {
-  static async createCheckoutPayment(userId: string, planId: string, paymentMethod: string = 'PAYOS') {
+  static async createCheckoutPayment(userId: string, planId: string, paymentMethod: string = 'PAYOS', clientIp?: string) {
     // 1. Lấy thông tin plan
     const plan = await prisma.subscriptionPlan.findUnique({
       where: { id: planId },
@@ -37,7 +37,8 @@ export class PaymentService {
       planId, 
       plan.price, 
       plan.name, 
-      orderCode
+      orderCode,
+      clientIp
     );
 
     return {
@@ -123,12 +124,13 @@ export class PaymentService {
 
   // Hàm xử lý webhook chung từ các Payment Provider
   static async handleWebhook(paymentMethod: string, webhookBody: any) {
+    const normalizedPaymentMethod = paymentMethod.toUpperCase();
     const paymentProvider = PaymentFactory.getProvider(paymentMethod);
     const result = await paymentProvider.verifyWebhook(webhookBody);
     const transaction = await prisma.transaction.findFirst({
       where: { 
         transaction_ref: result.orderCode,
-        status: 'PENDING'
+        payment_method: normalizedPaymentMethod,
       }
     });
 
@@ -136,7 +138,19 @@ export class PaymentService {
     console.log(">>> [PaymentService] Metadata to save:", JSON.stringify(result.metadata, null, 2));
 
     if (!transaction) {
-      throw new Error("Transaction not found or already processed");
+      throw new Error("Transaction not found");
+    }
+
+    if (transaction.status !== 'PENDING') {
+      throw new Error("Transaction already processed");
+    }
+
+    if (
+      normalizedPaymentMethod === 'VNPAY' &&
+      typeof result.amount === 'number' &&
+      Math.round(Number(transaction.amount)) !== Math.round(result.amount)
+    ) {
+      throw new Error("Invalid payment amount");
     }
 
     if (!result.isSuccess) {

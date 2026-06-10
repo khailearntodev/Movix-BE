@@ -20,7 +20,8 @@ export class PaymentController {
       const checkoutData = await PaymentService.createCheckoutPayment(
         userId, 
         planId, 
-        paymentMethod
+        paymentMethod,
+        req.ip
       );
 
       return res.status(200).json({
@@ -137,6 +138,51 @@ export class PaymentController {
       console.error("PaymentController.handleWebhook Error:", error);
       return res.status(200).json({ success: false, message: error.message });
     }
+  }
+
+  static async handleVnpayIpn(req: Request, res: Response) {
+    try {
+      await PaymentService.handleWebhook('VNPAY', req.query);
+      return res.status(200).json({ RspCode: '00', Message: 'Confirm Success' });
+    } catch (error: any) {
+      console.error("PaymentController.handleVnpayIpn Error:", error);
+      const message = error.message || '';
+
+      if (message.includes('checksum')) {
+        return res.status(200).json({ RspCode: '97', Message: 'Invalid Checksum' });
+      }
+
+      if (message.includes('not found')) {
+        return res.status(200).json({ RspCode: '01', Message: 'Order not found' });
+      }
+
+      if (message.includes('already processed')) {
+        return res.status(200).json({ RspCode: '02', Message: 'Order already confirmed' });
+      }
+
+      if (message.includes('amount')) {
+        return res.status(200).json({ RspCode: '04', Message: 'Invalid amount' });
+      }
+
+      return res.status(200).json({ RspCode: '99', Message: 'Unknown error' });
+    }
+  }
+
+  static async handleVnpayReturn(req: Request, res: Response) {
+    const FE_URL = process.env.FE_URL || process.env.FRONTEND_URL || 'http://localhost:3000';
+    const orderCode = req.query.vnp_TxnRef ? String(req.query.vnp_TxnRef) : '';
+    const isSuccess = req.query.vnp_ResponseCode === '00' && req.query.vnp_TransactionStatus === '00';
+
+    try {
+      await PaymentService.handleWebhook('VNPAY', req.query);
+    } catch (error: any) {
+      if (!String(error.message || '').includes('already processed')) {
+        console.error("PaymentController.handleVnpayReturn Error:", error);
+      }
+    }
+
+    const statusPath = isSuccess ? 'success' : 'cancel';
+    return res.redirect(`${FE_URL}/payment/${statusPath}?method=VNPAY&orderCode=${encodeURIComponent(orderCode)}`);
   }
 
 }

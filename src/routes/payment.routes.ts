@@ -22,4 +22,7 @@ router.post('/confirm-webhook', PaymentController.confirmWebhook);
 // Nhận webhook từ cổng thanh toán gọi đến
 router.post('/webhook/:method', PaymentController.handleWebhook);
 
+router.get('/webhook/vnpay', PaymentController.handleVnpayIpn);
+router.get('/return/vnpay', PaymentController.handleVnpayReturn);
+
 export default router;
