@@ -1,5 +1,5 @@
 import { prisma } from '../lib/prisma';
-import { Prisma } from '@prisma/client';
+import { Prisma, SubscriptionStatus } from '@prisma/client';
 
 const MAX_REFUND_REQUESTS_PER_USER = 1;
 
@@ -31,6 +31,22 @@ export const getUserSubscription = async (userId: string) => {
       plan: true,
     },
   });
+
+  if (
+    subscription &&
+    subscription.status === SubscriptionStatus.ACTIVE &&
+    subscription.end_date <= new Date()
+  ) {
+    return prisma.userSubscription.update({
+      where: { user_id: userId },
+      data: {
+        status: SubscriptionStatus.EXPIRED,
+      },
+      include: {
+        plan: true,
+      },
+    });
+  }
 
   return subscription;
 };
