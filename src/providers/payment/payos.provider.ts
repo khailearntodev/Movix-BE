@@ -41,6 +41,7 @@ export class PayosProvider implements IPaymentProvider {
         counterAccountName: data.counterAccountName,
         counterAccountNumber: data.counterAccountNumber,
         counterAccountBankName: data.counterAccountBankName,
+        counterAccountBankId: data.counterAccountBankId,
         transactionDateTime: data.transactionDateTime,
         paymentLinkId: data.paymentLinkId
       }
