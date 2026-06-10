@@ -52,17 +52,42 @@ const generateTokens = async (userId: string, deviceInfo?: any, ipAddress?: stri
     
     const maxDevices = activeSub?.plan?.max_devices ?? 1;
 
-    const activeSessionsCount = await prisma.refreshToken.count({
+    const activeSessions = await prisma.refreshToken.findMany({
       where: {
         userId,
         is_revoked: false,
         expiresAt: { gt: new Date() },
         ...(oldTokenId ? { id: { not: oldTokenId } } : {})
-      }
+      },
+      orderBy: { last_used_at: 'asc' }
     });
 
+    let activeSessionsCount = activeSessions.length;
+
     if (activeSessionsCount >= maxDevices) {
-      throw new Error('DEVICE_LIMIT_REACHED');
+      let duplicateSessionId = null;
+      if (deviceInfo) {
+        const dup = activeSessions.find(s => {
+          if (!s.device_info || typeof s.device_info !== 'object') return false;
+          const sDev = s.device_info as any;
+          return sDev.deviceName === deviceInfo.deviceName &&
+                 sDev.browser === deviceInfo.browser &&
+                 sDev.os === deviceInfo.os;
+        });
+        if (dup) duplicateSessionId = dup.id;
+      }
+
+      if (duplicateSessionId) {
+        await prisma.refreshToken.update({
+          where: { id: duplicateSessionId },
+          data: { is_revoked: true }
+        });
+        activeSessionsCount--;
+      } 
+
+      if (activeSessionsCount >= maxDevices) {
+        throw new Error('DEVICE_LIMIT_REACHED');
+      }
     }
   }
 
